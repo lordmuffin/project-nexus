@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  # Backend Node.js service
+  backend:
+    build:
+      context: ./packages/backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - FRONTEND_URL=http://localhost:3000
+      - TRANSCRIPTION_SERVICE_URL=http://transcription-service:8000
+    volumes:
+      - ./packages/backend:/app
+      - /app/node_modules
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+    depends_on:
+      - transcription-service
+    networks:
+      - nexus-network
+    restart: unless-stopped
+
+  # Whisper transcription service
+  transcription-service:
+    build:
+      context: ./packages/transcription-service
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - HOST=0.0.0.0
+      - NODE_ENV=development
+    volumes:
+      - ./uploads:/app/uploads
+      - transcription-models:/root/.cache/whisper
+    # Uncomment for GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    networks:
+      - nexus-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Database (optional - using SQLite by default)
+  # Uncomment if you want to use PostgreSQL instead
+  # database:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     POSTGRES_DB: nexus
+  #     POSTGRES_USER: nexus
+  #     POSTGRES_PASSWORD: nexus_password
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   networks:
+  #     - nexus-network
+  #   restart: unless-stopped
+
+  # Redis for caching (optional)
+  # Uncomment if you want to add Redis for caching transcription jobs
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   networks:
+  #     - nexus-network
+  #   restart: unless-stopped
+
+volumes:
+  transcription-models:
+    driver: local
+  # postgres_data:
+  #   driver: local
+  # redis_data:
+  #   driver: local
+
+networks:
+  nexus-network:
+    driver: bridge

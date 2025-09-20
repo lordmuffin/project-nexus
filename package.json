@@ -1,0 +1,69 @@
+{
+  "name": "nexus",
+  "version": "1.0.0",
+  "description": "Project Nexus - AI-Powered Local Productivity Suite",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "packageManager": "pnpm@8.0.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
+    "type-check": "turbo run type-check",
+    "test": "turbo run test",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "start": "turbo run start --parallel",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "setup": "pnpm install && pnpm run build",
+    "desktop": "pnpm --filter desktop dev",
+    "web": "pnpm --filter nexus-web start",
+    "backend": "pnpm --filter nexus-backend dev",
+    "transcription": "docker-compose up transcription-service"
+  },
+  "keywords": [
+    "nexus",
+    "productivity",
+    "ai",
+    "local",
+    "transcription",
+    "meetings",
+    "chat"
+  ],
+  "author": "Project Nexus Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@turbo/gen": "^1.10.12",
+    "turbo": "^1.10.12",
+    "prettier": "^3.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.45.0",
+    "eslint-plugin-import": "^2.25.0",
+    "eslint-plugin-jsx-a11y": "^6.5.0",
+    "eslint-plugin-react": "^7.28.0",
+    "eslint-plugin-react-hooks": "^4.3.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/nexus.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/nexus/issues"
+  },
+  "homepage": "https://github.com/your-username/nexus#readme",
+  "dependencies": {
+    "@anthropic-ai/claude-code": "^1.0.88"
+  }
+}
