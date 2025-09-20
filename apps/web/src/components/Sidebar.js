@@ -3,9 +3,10 @@ import { NavLink } from 'react-router-dom';
 import './Sidebar.css';
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: '📊' },
+  { name: 'Assistant', href: '/chat', icon: '🤖' },
+  { name: 'Notes', href: '/notes', icon: '📝' },
   { name: 'Meetings', href: '/meetings', icon: '🎯' },
-  { name: 'Chat', href: '/chat', icon: '💬' },
+  { name: 'Dashboard', href: '/', icon: '📊' },
   { name: 'Settings', href: '/settings', icon: '⚙️' },
 ];
 

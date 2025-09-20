@@ -11,9 +11,11 @@ const chatRoutes = require('./api/chat');
 const meetingsRoutes = require('./api/meetings');
 const transcriptionRoutes = require('./api/transcription');
 const healthRoutes = require('./api/health');
+const notesRoutes = require('./api/notes');
 
 // Import services
 const dbService = require('./services/database');
+const ollamaService = require('./services/ollama');
 const wsService = require('./services/websocket');
 
 const app = express();
@@ -51,11 +53,15 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Serve static files
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// Make io available to routes
+app.set('io', io);
+
 // API Routes
 app.use('/api/health', healthRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/meetings', meetingsRoutes);
 app.use('/api/transcription', transcriptionRoutes);
+app.use('/api/notes', notesRoutes);
 
 // WebSocket setup
 wsService.initialize(io);
@@ -113,13 +119,19 @@ async function startServer() {
     // Initialize database
     await dbService.initialize();
     
+    // Initialize Ollama service
+    await ollamaService.initialize();
+    
     server.listen(PORT, () => {
       console.log(`🚀 Nexus Backend Server running on port ${PORT}`);
       console.log(`📡 WebSocket server ready`);
+      console.log(`🤖 AI service initialized`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
       
       if (process.env.NODE_ENV === 'development') {
         console.log(`🔗 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+        console.log(`🔗 Database URL: ${process.env.DATABASE_URL || 'postgresql://nexus:nexus_password@localhost:5432/nexus'}`);
+        console.log(`🔗 Ollama URL: ${process.env.OLLAMA_URL || 'http://localhost:11434'}`);
       }
     });
   } catch (error) {

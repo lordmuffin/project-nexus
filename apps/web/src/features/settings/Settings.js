@@ -1,9 +1,51 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTheme } from '../../lib/theme';
+import { useHealthCheck } from '../../hooks/useHealthCheck';
 import './Settings.css';
+
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 function Settings() {
   const { theme, toggleTheme } = useTheme();
+  const { health, checkHealth } = useHealthCheck();
+  const [qrCode, setQrCode] = useState(null);
+  const [isGeneratingQR, setIsGeneratingQR] = useState(false);
+
+  const generateQRCode = async () => {
+    try {
+      setIsGeneratingQR(true);
+      const response = await fetch(`${API_BASE}/api/chat/pair/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          deviceName: 'Mobile Device'
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setQrCode(data.data);
+        // Auto-hide QR code after 5 minutes
+        setTimeout(() => setQrCode(null), 5 * 60 * 1000);
+      }
+    } catch (error) {
+      console.error('Failed to generate QR code:', error);
+    } finally {
+      setIsGeneratingQR(false);
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'healthy': return '🟢';
+      case 'unhealthy': return '🔴';
+      case 'checking': return '🟡';
+      default: return '⚪';
+    }
+  };
 
   return (
     <div className="settings">
@@ -112,19 +154,88 @@ function Settings() {
         </div>
 
         <div className="settings-section">
+          <h3>Device Pairing</h3>
+          <div className="setting-item">
+            <div className="setting-info">
+              <label>Mobile Companion</label>
+              <span className="setting-description">Pair your mobile device for remote recording</span>
+            </div>
+            <button 
+              className="pair-button"
+              onClick={generateQRCode}
+              disabled={isGeneratingQR}
+            >
+              {isGeneratingQR ? 'Generating...' : '📱 Generate QR Code'}
+            </button>
+          </div>
+          
+          {qrCode && (
+            <div className="qr-code-container">
+              <div className="qr-code-header">
+                <h4>Scan with your mobile device</h4>
+                <p>This code expires in 5 minutes</p>
+              </div>
+              <img src={qrCode.qrCode} alt="QR Code for device pairing" className="qr-code" />
+              <div className="qr-code-info">
+                <p>Pairing Code: {qrCode.pairingCode}</p>
+                <p>Expires: {new Date(qrCode.expiresAt).toLocaleTimeString()}</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="settings-section">
+          <h3>System Health</h3>
+          <div className="health-check">
+            <div className="health-header">
+              <span>Service Status</span>
+              <button onClick={checkHealth} className="refresh-button">
+                🔄 Refresh
+              </button>
+            </div>
+            
+            <div className="health-items">
+              <div className="health-item">
+                <span className="health-label">Backend API</span>
+                <span className={`health-status ${health.backend.status}`}>
+                  {getStatusIcon(health.backend.status)} {health.backend.status}
+                </span>
+              </div>
+              
+              <div className="health-item">
+                <span className="health-label">Database</span>
+                <span className={`health-status ${health.database.status}`}>
+                  {getStatusIcon(health.database.status)} {health.database.status}
+                </span>
+              </div>
+              
+              <div className="health-item">
+                <span className="health-label">AI Service (Ollama)</span>
+                <span className={`health-status ${health.ollama.status}`}>
+                  {getStatusIcon(health.ollama.status)} {health.ollama.status}
+                </span>
+                {health.ollama.data?.defaultModel && (
+                  <span className="health-detail">Model: {health.ollama.data.defaultModel}</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="settings-section">
           <h3>About</h3>
           <div className="about-info">
             <div className="about-item">
               <span className="about-label">Version</span>
-              <span className="about-value">1.0.0</span>
+              <span className="about-value">1.0.0-alpha</span>
             </div>
             <div className="about-item">
-              <span className="about-label">Backend Status</span>
-              <span className="about-value status online">Online</span>
+              <span className="about-label">License</span>
+              <span className="about-value">MIT License</span>
             </div>
             <div className="about-item">
-              <span className="about-label">Transcription Service</span>
-              <span className="about-value status online">Ready</span>
+              <span className="about-label">Last Updated</span>
+              <span className="about-value">{new Date().toLocaleDateString()}</span>
             </div>
           </div>
         </div>

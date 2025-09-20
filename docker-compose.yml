@@ -1,43 +1,82 @@
-version: '3.8'
-
 services:
-  # Backend Node.js service
+  # Frontend React application
+  frontend:
+    image: node:18-alpine
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_BACKEND_URL=http://localhost:3001
+      - PORT=3000
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+    networks:
+      - nexus-network
+    restart: unless-stopped
+    command: sh -c "npm install --legacy-peer-deps && npm start"
+    depends_on:
+      - backend
+
+  # Backend Node.js service (Development mode - volume mounted)
   backend:
-    build:
-      context: ./packages/backend
-      dockerfile: Dockerfile
+    image: node:18-alpine
+    working_dir: /app
     ports:
       - "3001:3001"
     environment:
       - NODE_ENV=development
       - PORT=3001
       - FRONTEND_URL=http://localhost:3000
-      - TRANSCRIPTION_SERVICE_URL=http://transcription-service:8000
+      - DATABASE_URL=postgresql://nexus:nexus_password@database:5432/nexus
+      - OLLAMA_URL=http://ollama:11434
     volumes:
       - ./packages/backend:/app
       - /app/node_modules
       - ./data:/app/data
       - ./uploads:/app/uploads
     depends_on:
-      - transcription-service
+      database:
+        condition: service_healthy
+      ollama:
+        condition: service_started
     networks:
       - nexus-network
     restart: unless-stopped
+    command: sh -c "apk add --no-cache python3 make g++ curl && npm install && npm run dev"
 
-  # Whisper transcription service
-  transcription-service:
-    build:
-      context: ./packages/transcription-service
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
+  # PostgreSQL Database
+  database:
+    image: postgres:15-alpine
     environment:
-      - PORT=8000
-      - HOST=0.0.0.0
-      - NODE_ENV=development
+      POSTGRES_DB: nexus
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: nexus_password
     volumes:
-      - ./uploads:/app/uploads
-      - transcription-models:/root/.cache/whisper
+      - postgres_data:/var/lib/postgresql/data
+      - ./packages/backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - nexus-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus -d nexus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Ollama LLM Service
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - nexus-network
+    restart: unless-stopped
     # Uncomment for GPU support
     # deploy:
     #   resources:
@@ -46,30 +85,11 @@ services:
     #         - driver: nvidia
     #           count: 1
     #           capabilities: [gpu]
-    networks:
-      - nexus-network
-    restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/version"]
       interval: 30s
       timeout: 10s
       retries: 3
-
-  # Database (optional - using SQLite by default)
-  # Uncomment if you want to use PostgreSQL instead
-  # database:
-  #   image: postgres:15-alpine
-  #   environment:
-  #     POSTGRES_DB: nexus
-  #     POSTGRES_USER: nexus
-  #     POSTGRES_PASSWORD: nexus_password
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
-  #   ports:
-  #     - "5432:5432"
-  #   networks:
-  #     - nexus-network
-  #   restart: unless-stopped
 
   # Redis for caching (optional)
   # Uncomment if you want to add Redis for caching transcription jobs
@@ -86,8 +106,10 @@ services:
 volumes:
   transcription-models:
     driver: local
-  # postgres_data:
-  #   driver: local
+  postgres_data:
+    driver: local
+  ollama_data:
+    driver: local
   # redis_data:
   #   driver: local
 

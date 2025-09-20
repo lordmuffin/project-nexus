@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Nexus - Test Frontend</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            background: #e8f5e8;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            border-left: 4px solid #28a745;
+        }
+        .api-test {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            border: 1px solid #dee2e6;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Project Nexus</h1>
+        <p>Simple test frontend to verify connectivity</p>
+        
+        <div class="status">
+            <strong>✅ Frontend Status:</strong> Connected on port 3000
+        </div>
+        
+        <div class="api-test">
+            <h3>Backend API Test</h3>
+            <button onclick="testHealth()">Test Health Endpoint</button>
+            <button onclick="testChat()">Test Chat API</button>
+            <button onclick="testMeetings()">Test Meetings API</button>
+            
+            <div id="result" style="margin-top: 15px;"></div>
+        </div>
+        
+        <div class="api-test">
+            <h3>🤖 AI Chat Interface</h3>
+            <div style="margin: 15px 0;">
+                <input type="text" id="chatInput" placeholder="Type your message here..." style="width: 60%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <button onclick="sendMessage()" style="padding: 8px 15px;">Send</button>
+                <button onclick="newSession()" style="padding: 8px 15px; background: #28a745;">New Chat</button>
+            </div>
+            
+            <div id="chatHistory" style="background: #f8f9fa; padding: 15px; border-radius: 4px; min-height: 200px; max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6;">
+                <div style="color: #666; font-style: italic;">Chat messages will appear here...</div>
+            </div>
+            
+            <div style="margin-top: 10px; font-size: 0.9em; color: #666;">
+                <strong>Current Session:</strong> <span id="currentSession">None</span> | 
+                <strong>AI Model:</strong> llama3.2:1b (Local)
+            </div>
+        </div>
+        
+        <h3>Available Endpoints:</h3>
+        <ul>
+            <li><code>GET /api/health</code> - System health check</li>
+            <li><code>GET /api/chat</code> - Chat functionality</li>
+            <li><code>GET /api/meetings</code> - Meeting management</li>
+            <li><code>GET /api/transcription</code> - Transcription services</li>
+            <li><code>GET /api/notes</code> - Notes management</li>
+        </ul>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+        let currentSessionId = null;
+        
+        function showResult(title, data, error = false) {
+            const result = document.getElementById('result');
+            const bgColor = error ? '#f8d7da' : '#d4edda';
+            const borderColor = error ? '#f5c6cb' : '#c3e6cb';
+            
+            result.innerHTML = `
+                <h4>${title}</h4>
+                <pre style="background: ${bgColor}; border-color: ${borderColor};">${JSON.stringify(data, null, 2)}</pre>
+            `;
+        }
+        
+        function addMessageToChat(message, isUser = true) {
+            const chatHistory = document.getElementById('chatHistory');
+            if (chatHistory.innerHTML.includes('Chat messages will appear here')) {
+                chatHistory.innerHTML = '';
+            }
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.style.cssText = `
+                margin: 10px 0; 
+                padding: 10px; 
+                border-radius: 8px; 
+                ${isUser ? 'background: #007bff; color: white; margin-left: 20%;' : 'background: #e9ecef; margin-right: 20%;'}
+            `;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            messageDiv.innerHTML = `
+                <div style="font-weight: bold; margin-bottom: 5px;">
+                    ${isUser ? '👤 You' : '🤖 AI Assistant'} 
+                    <span style="font-weight: normal; font-size: 0.8em; opacity: 0.7;">${timestamp}</span>
+                </div>
+                <div>${message}</div>
+            `;
+            
+            chatHistory.appendChild(messageDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+        
+        async function newSession() {
+            try {
+                const response = await fetch(`${API_BASE}/api/chat/sessions`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentSessionId = data.data.id;
+                    document.getElementById('currentSession').textContent = currentSessionId.substring(0, 8) + '...';
+                    document.getElementById('chatHistory').innerHTML = '<div style="color: #666; font-style: italic;">New chat session started. Say hello!</div>';
+                    showResult('Chat Session Created', data.data);
+                } else {
+                    showResult('Session Creation Error', data, true);
+                }
+            } catch (error) {
+                showResult('Session Creation Error', { error: error.message }, true);
+            }
+        }
+        
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (!message) {
+                alert('Please enter a message');
+                return;
+            }
+            
+            if (!currentSessionId) {
+                await newSession();
+                if (!currentSessionId) return;
+            }
+            
+            // Add user message to chat
+            addMessageToChat(message, true);
+            input.value = '';
+            
+            // Show loading indicator
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = 'loading';
+            loadingDiv.style.cssText = 'margin: 10px 0; padding: 10px; background: #fff3cd; border-radius: 8px; margin-right: 20%;';
+            loadingDiv.innerHTML = '🤖 AI is thinking... <span id="loadingDots">.</span>';
+            document.getElementById('chatHistory').appendChild(loadingDiv);
+            
+            // Animate loading dots
+            let dots = 1;
+            const loadingInterval = setInterval(() => {
+                const dotsEl = document.getElementById('loadingDots');
+                if (dotsEl) {
+                    dots = (dots % 3) + 1;
+                    dotsEl.textContent = '.'.repeat(dots);
+                }
+            }, 500);
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/chat/sessions/${currentSessionId}/messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ content: message })
+                });
+                
+                const data = await response.json();
+                
+                // Remove loading indicator
+                clearInterval(loadingInterval);
+                const loading = document.getElementById('loading');
+                if (loading) loading.remove();
+                
+                if (data.success) {
+                    // Add AI response to chat
+                    addMessageToChat(data.data.aiMessage.content, false);
+                    showResult('Message Sent', data.data);
+                } else {
+                    addMessageToChat('Sorry, I encountered an error processing your message.', false);
+                    showResult('Message Error', data, true);
+                }
+            } catch (error) {
+                clearInterval(loadingInterval);
+                const loading = document.getElementById('loading');
+                if (loading) loading.remove();
+                
+                addMessageToChat('Sorry, there was a network error. Please try again.', false);
+                showResult('Network Error', { error: error.message }, true);
+            }
+        }
+        
+        // Allow Enter key to send message
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('chatInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+        });
+        
+        async function testHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/api/health`);
+                const data = await response.json();
+                showResult('Health Check Result', data);
+            } catch (error) {
+                showResult('Health Check Error', { error: error.message }, true);
+            }
+        }
+        
+        async function testChat() {
+            try {
+                const response = await fetch(`${API_BASE}/api/chat/health`);
+                const data = await response.json();
+                showResult('Chat Health Result', data);
+            } catch (error) {
+                showResult('Chat Health Error', { error: error.message }, true);
+            }
+        }
+        
+        async function testMeetings() {
+            try {
+                const response = await fetch(`${API_BASE}/api/meetings`);
+                const data = await response.json();
+                showResult('Meetings API Result', data);
+            } catch (error) {
+                showResult('Meetings API Error', { error: error.message }, true);
+            }
+        }
+        
+        // Auto-initialize on page load
+        window.onload = function() {
+            testHealth();
+            newSession(); // Automatically create a chat session
+        };
+    </script>
+</body>
+</html>

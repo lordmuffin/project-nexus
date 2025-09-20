@@ -1,17 +1,19 @@
 const express = require('express');
 const router = express.Router();
 const chatService = require('../services/chat');
+const ollamaService = require('../services/ollama');
+const databaseService = require('../services/database');
 
-// Get all chat messages
-router.get('/messages', async (req, res) => {
+// Get all chat messages for a session
+router.get('/sessions/:sessionId/messages', async (req, res) => {
   try {
-    const { limit = 50, offset = 0, search } = req.query;
+    const { sessionId } = req.params;
+    const { limit = 50, offset = 0 } = req.query;
     
-    const messages = await chatService.getMessages({
-      limit: parseInt(limit),
-      offset: parseInt(offset),
-      search
-    });
+    const messages = await databaseService.all(
+      'SELECT * FROM chat_messages WHERE session_id = $1 ORDER BY created_at ASC LIMIT $2 OFFSET $3',
+      [sessionId, parseInt(limit), parseInt(offset)]
+    );
     
     res.json({
       success: true,
@@ -31,10 +33,44 @@ router.get('/messages', async (req, res) => {
   }
 });
 
-// Send a new chat message
-router.post('/messages', async (req, res) => {
+// Get or create a chat session
+router.get('/sessions', async (req, res) => {
   try {
-    const { content, type = 'text', metadata = {} } = req.body;
+    // For now, just return/create a default session
+    const userId = '00000000-0000-0000-0000-000000000001'; // Demo user
+    
+    let session = await databaseService.get(
+      'SELECT * FROM chat_sessions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
+      [userId]
+    );
+
+    if (!session) {
+      const sessionId = databaseService.generateId();
+      await databaseService.run(
+        'INSERT INTO chat_sessions (id, user_id, title) VALUES ($1, $2, $3)',
+        [sessionId, userId, 'New Chat']
+      );
+      session = { id: sessionId, user_id: userId, title: 'New Chat', created_at: new Date() };
+    }
+
+    res.json({
+      success: true,
+      data: session
+    });
+  } catch (error) {
+    console.error('Error handling chat session:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to handle chat session'
+    });
+  }
+});
+
+// Send a new chat message and get AI response
+router.post('/sessions/:sessionId/messages', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { content } = req.body;
     
     if (!content || content.trim().length === 0) {
       return res.status(400).json({
@@ -42,21 +78,72 @@ router.post('/messages', async (req, res) => {
         error: 'Message content is required'
       });
     }
-    
-    const message = await chatService.createMessage({
+
+    // Save user message
+    const userMessageId = databaseService.generateId();
+    await databaseService.run(
+      'INSERT INTO chat_messages (id, session_id, role, content, created_at) VALUES ($1, $2, $3, $4, $5)',
+      [userMessageId, sessionId, 'user', content.trim(), new Date()]
+    );
+
+    const userMessage = {
+      id: userMessageId,
+      session_id: sessionId,
+      role: 'user',
       content: content.trim(),
-      type,
-      metadata,
-      timestamp: new Date(),
-      userId: req.user?.id || 'anonymous' // TODO: Implement user authentication
-    });
-    
-    // Emit to all connected clients
-    req.app.get('io').emit('chat:message', message);
+      created_at: new Date()
+    };
+
+    // Get conversation history for context
+    const conversationHistory = await databaseService.all(
+      'SELECT role, content FROM chat_messages WHERE session_id = $1 ORDER BY created_at ASC',
+      [sessionId]
+    );
+
+    // Generate AI response
+    const aiResponse = await ollamaService.generateResponse(
+      content.trim(),
+      conversationHistory.slice(-10) // Last 10 messages for context
+    );
+
+    // Save AI response
+    const aiMessageId = databaseService.generateId();
+    await databaseService.run(
+      'INSERT INTO chat_messages (id, session_id, role, content, metadata, created_at) VALUES ($1, $2, $3, $4, $5, $6)',
+      [aiMessageId, sessionId, 'assistant', aiResponse.content, JSON.stringify({
+        model: aiResponse.model,
+        total_duration: aiResponse.total_duration,
+        eval_count: aiResponse.eval_count,
+        error: aiResponse.error || false
+      }), new Date()]
+    );
+
+    const aiMessage = {
+      id: aiMessageId,
+      session_id: sessionId,
+      role: 'assistant',
+      content: aiResponse.content,
+      metadata: {
+        model: aiResponse.model,
+        total_duration: aiResponse.total_duration,
+        eval_count: aiResponse.eval_count,
+        error: aiResponse.error || false
+      },
+      created_at: new Date()
+    };
+
+    // Emit both messages to connected clients if WebSocket is available
+    if (req.app.get('io')) {
+      req.app.get('io').emit('chat:message', userMessage);
+      req.app.get('io').emit('chat:message', aiMessage);
+    }
     
     res.status(201).json({
       success: true,
-      data: message
+      data: {
+        userMessage,
+        aiMessage
+      }
     });
   } catch (error) {
     console.error('Error creating chat message:', error);
@@ -196,6 +283,65 @@ router.get('/search', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to search chat messages'
+    });
+  }
+});
+
+// Health check for LLM service
+router.get('/health', async (req, res) => {
+  try {
+    const ollamaHealth = await ollamaService.healthCheck();
+    res.json({
+      success: true,
+      data: ollamaHealth
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Health check failed'
+    });
+  }
+});
+
+// Generate QR code for device pairing
+router.post('/pair/generate', async (req, res) => {
+  try {
+    const QRCode = require('qrcode');
+    
+    // Generate unique pairing code
+    const pairingCode = require('crypto').randomBytes(32).toString('hex');
+    const deviceName = req.body.deviceName || 'Mobile Device';
+    
+    // Store pairing code in database with expiration
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    await databaseService.run(
+      'INSERT INTO device_pairs (id, pairing_code, device_name, expires_at) VALUES ($1, $2, $3, $4)',
+      [databaseService.generateId(), pairingCode, deviceName, expiresAt]
+    );
+    
+    // Create QR code with connection info
+    const connectionInfo = {
+      code: pairingCode,
+      url: `ws://localhost:3001`,
+      expires: expiresAt.toISOString()
+    };
+    
+    const qrCodeDataUrl = await QRCode.toDataURL(JSON.stringify(connectionInfo));
+    
+    res.json({
+      success: true,
+      data: {
+        pairingCode,
+        qrCode: qrCodeDataUrl,
+        expiresAt,
+        connectionInfo
+      }
+    });
+  } catch (error) {
+    console.error('Error generating pairing QR code:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate pairing code'
     });
   }
 });
