@@ -73,7 +73,7 @@ class OllamaService {
       };
 
       const response = await axios.post(`${this.baseUrl}/api/chat`, payload, {
-        timeout: 30000 // 30 second timeout
+        timeout: 120000 // 2 minute timeout for slow systems
       });
 
       return {
@@ -94,8 +94,46 @@ class OllamaService {
     }
   }
 
+  async generateCompletion(options = {}) {
+    const { 
+      prompt, 
+      model = this.defaultModel, 
+      temperature = 0.7, 
+      maxTokens = 1000,
+      stream = false 
+    } = options;
+
+    try {
+      const response = await axios.post(`${this.baseUrl}/api/generate`, {
+        model: model,
+        prompt: prompt,
+        stream: stream,
+        options: {
+          temperature: temperature,
+          num_predict: maxTokens
+        }
+      });
+
+      return response.data.response || '';
+    } catch (error) {
+      console.error('Failed to generate completion:', error.message);
+      throw new Error(`Completion generation failed: ${error.message}`);
+    }
+  }
+
   async generateResponse(userMessage, conversationHistory = []) {
     try {
+      // Check if Ollama is responsive first
+      try {
+        await axios.get(`${this.baseUrl}/api/version`, { timeout: 5000 });
+      } catch (error) {
+        return {
+          content: "I'm sorry, but the AI service is currently unavailable. The local Ollama service is not responding. This could be due to high system load or the service being offline.",
+          model: "error",
+          error: true
+        };
+      }
+
       // Format conversation for Ollama
       const messages = [
         {
@@ -116,10 +154,23 @@ class OllamaService {
       return response;
     } catch (error) {
       console.error('Failed to generate response:', error.message);
+      
+      // Provide specific error messages based on the type of error
+      let errorMessage = 'I apologize, but I\'m having trouble processing your request right now.';
+      
+      if (error.code === 'ECONNREFUSED') {
+        errorMessage = 'The AI service (Ollama) is not available. Please ensure it is running.';
+      } else if (error.code === 'ETIMEDOUT' || error.message.includes('timeout')) {
+        errorMessage = 'The AI is taking longer than usual to respond. This system may be running slowly. Please try a simpler question or wait for the system to catch up.';
+      } else if (error.message.includes('model')) {
+        errorMessage = 'There\'s an issue with the AI model. Please check that Llama 3.2:1b is properly loaded.';
+      }
+      
       return {
-        content: 'I apologize, but I\'m having trouble connecting to the AI service right now. Please ensure Ollama is running and try again.',
+        content: `${errorMessage}\n\nTechnical details: ${error.message}`,
         model: 'error',
-        error: true
+        error: true,
+        timestamp: new Date().toISOString()
       };
     }
   }

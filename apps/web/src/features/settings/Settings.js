@@ -14,14 +14,11 @@ function Settings() {
   const generateQRCode = async () => {
     try {
       setIsGeneratingQR(true);
-      const response = await fetch(`${API_BASE}/api/chat/pair/generate`, {
+      const response = await fetch(`${API_BASE}/api/pairing/generate-qr`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          deviceName: 'Mobile Device'
-        }),
       });
 
       const data = await response.json();
@@ -177,7 +174,7 @@ function Settings() {
               </div>
               <img src={qrCode.qrCode} alt="QR Code for device pairing" className="qr-code" />
               <div className="qr-code-info">
-                <p>Pairing Code: {qrCode.pairingCode}</p>
+                <p>Token: {qrCode.token?.substring(0, 8)}...</p>
                 <p>Expires: {new Date(qrCode.expiresAt).toLocaleTimeString()}</p>
               </div>
             </div>

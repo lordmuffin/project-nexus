@@ -4,6 +4,7 @@ const path = require('path');
 const router = express.Router();
 const meetingsService = require('../services/meetings');
 const transcriptionService = require('../services/transcription');
+const ollamaService = require('../services/ollama');
 
 // Configure multer for file uploads
 const upload = multer({
@@ -34,11 +35,57 @@ router.get('/', async (req, res) => {
   try {
     const { limit = 20, offset = 0, status, search } = req.query;
     
-    const meetings = await meetingsService.getMeetings({
+    const rawMeetings = await meetingsService.getMeetings({
       limit: parseInt(limit),
       offset: parseInt(offset),
       status,
       search
+    });
+    
+    // Transform data to match frontend expectations
+    const meetings = rawMeetings.map(meeting => {
+      let actionItems = [];
+      let metadata = {};
+      
+      // Safely parse action_items
+      try {
+        if (meeting.action_items && typeof meeting.action_items === 'string') {
+          actionItems = JSON.parse(meeting.action_items);
+        } else if (Array.isArray(meeting.action_items)) {
+          actionItems = meeting.action_items;
+        }
+      } catch (e) {
+        console.warn('Failed to parse action_items:', e);
+        actionItems = [];
+      }
+      
+      // Safely parse metadata
+      try {
+        if (meeting.metadata && typeof meeting.metadata === 'string') {
+          metadata = JSON.parse(meeting.metadata);
+        } else if (meeting.metadata && typeof meeting.metadata === 'object') {
+          metadata = meeting.metadata;
+        }
+      } catch (e) {
+        console.warn('Failed to parse metadata:', e);
+        metadata = {};
+      }
+      
+      return {
+        id: meeting.id,
+        title: meeting.title,
+        transcript: meeting.transcript,
+        summary: meeting.summary,
+        actionItems: actionItems,
+        segments: metadata?.transcription_result?.segments || [],
+        duration: metadata?.transcription_result?.duration || 0,
+        language: metadata?.transcription_result?.language || 'auto',
+        createdAt: meeting.created_at,
+        updatedAt: meeting.updated_at,
+        // Additional metadata
+        keyPoints: metadata?.ai_analysis?.keyPoints || [],
+        decisions: metadata?.ai_analysis?.decisions || []
+      };
     });
     
     res.json({
@@ -101,14 +148,57 @@ router.post('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const meeting = await meetingsService.getMeetingById(id);
+    const rawMeeting = await meetingsService.getMeetingById(id);
     
-    if (!meeting) {
+    if (!rawMeeting) {
       return res.status(404).json({
         success: false,
         error: 'Meeting not found'
       });
     }
+    
+    // Transform data to match frontend expectations  
+    let actionItems = [];
+    let metadata = {};
+    
+    // Safely parse action_items
+    try {
+      if (rawMeeting.action_items && typeof rawMeeting.action_items === 'string') {
+        actionItems = JSON.parse(rawMeeting.action_items);
+      } else if (Array.isArray(rawMeeting.action_items)) {
+        actionItems = rawMeeting.action_items;
+      }
+    } catch (e) {
+      console.warn('Failed to parse action_items:', e);
+      actionItems = [];
+    }
+    
+    // Safely parse metadata
+    try {
+      if (rawMeeting.metadata && typeof rawMeeting.metadata === 'string') {
+        metadata = JSON.parse(rawMeeting.metadata);
+      } else if (rawMeeting.metadata && typeof rawMeeting.metadata === 'object') {
+        metadata = rawMeeting.metadata;
+      }
+    } catch (e) {
+      console.warn('Failed to parse metadata:', e);
+      metadata = {};
+    }
+    
+    const meeting = {
+      id: rawMeeting.id,
+      title: rawMeeting.title,
+      transcript: rawMeeting.transcript,
+      summary: rawMeeting.summary,
+      actionItems: actionItems,
+      segments: metadata?.transcription_result?.segments || [],
+      duration: metadata?.transcription_result?.duration || 0,
+      language: metadata?.transcription_result?.language || 'auto',
+      createdAt: rawMeeting.created_at,
+      updatedAt: rawMeeting.updated_at,
+      keyPoints: metadata?.ai_analysis?.keyPoints || [],
+      decisions: metadata?.ai_analysis?.decisions || []
+    };
     
     res.json({
       success: true,
@@ -298,6 +388,87 @@ router.get('/:id/transcription', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch transcription'
+    });
+  }
+});
+
+// Analyze meeting transcript with AI
+router.post('/:id/analyze', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { transcript } = req.body;
+    
+    if (!transcript || transcript.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Transcript content is required'
+      });
+    }
+    
+    // Generate AI summary and action items
+    const analysisPrompt = `
+Please analyze the following meeting transcript and provide:
+1. A concise summary (2-3 sentences)
+2. Key discussion points (bullet points)
+3. Action items with responsible parties if mentioned
+4. Important decisions made
+
+Transcript:
+${transcript}
+
+Please format your response as JSON with the following structure:
+{
+  "summary": "Brief summary here",
+  "keyPoints": ["point 1", "point 2", ...],
+  "actionItems": ["action 1", "action 2", ...],
+  "decisions": ["decision 1", "decision 2", ...]
+}
+`;
+
+    const aiResponse = await ollamaService.generateCompletion({
+      prompt: analysisPrompt,
+      temperature: 0.1,
+      maxTokens: 1000
+    });
+    
+    let analysis;
+    try {
+      // Try to parse JSON response
+      analysis = JSON.parse(aiResponse.trim());
+    } catch (parseError) {
+      // If JSON parsing fails, create a structured response from the text
+      analysis = {
+        summary: aiResponse.substring(0, 200) + '...',
+        keyPoints: [],
+        actionItems: [],
+        decisions: []
+      };
+    }
+    
+    // Save analysis to meeting record
+    await meetingsService.updateMeeting(id, {
+      summary: analysis.summary,
+      actionItems: analysis.actionItems || [],
+      keyPoints: analysis.keyPoints || [],
+      decisions: analysis.decisions || [],
+      analyzedAt: new Date()
+    });
+    
+    // Emit to connected clients
+    req.app.get('io').emit('meeting:analysis_complete', {
+      meetingId: id,
+      analysis
+    });
+    
+    res.json({
+      success: true,
+      data: analysis
+    });
+  } catch (error) {
+    console.error('Error analyzing meeting:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to analyze meeting transcript'
     });
   }
 });

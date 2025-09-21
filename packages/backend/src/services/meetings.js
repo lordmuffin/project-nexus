@@ -3,14 +3,46 @@ const path = require('path');
 const fs = require('fs').promises;
 
 class MeetingsService {
-  // Get all meetings
-  async getAllMeetings(userId = null) {
-    const query = userId 
-      ? `SELECT * FROM meetings WHERE user_id = $1 ORDER BY created_at DESC`
-      : `SELECT * FROM meetings ORDER BY created_at DESC`;
+  // Get meetings with pagination and filters
+  async getMeetings(options = {}) {
+    const { limit = 20, offset = 0, status, search, userId = null } = options;
+    
+    let query = `SELECT * FROM meeting_recordings WHERE 1=1`;
+    const params = [];
+    let paramIndex = 1;
+    
+    if (userId) {
+      query += ` AND user_id = $${paramIndex}`;
+      params.push(userId);
+      paramIndex++;
+    }
+    
+    if (status) {
+      query += ` AND status = $${paramIndex}`;
+      params.push(status);
+      paramIndex++;
+    }
+    
+    if (search) {
+      query += ` AND (title ILIKE $${paramIndex} OR description ILIKE $${paramIndex})`;
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+    
+    query += ` ORDER BY created_at DESC`;
+    
+    if (limit) {
+      query += ` LIMIT $${paramIndex}`;
+      params.push(limit);
+      paramIndex++;
+    }
+    
+    if (offset) {
+      query += ` OFFSET $${paramIndex}`;
+      params.push(offset);
+    }
     
     try {
-      const params = userId ? [userId] : [];
       const result = await db.query(query, params);
       return result.rows;
     } catch (error) {
@@ -19,10 +51,15 @@ class MeetingsService {
     }
   }
 
+  // Get all meetings (legacy method)
+  async getAllMeetings(userId = null) {
+    return this.getMeetings({ userId });
+  }
+
   // Get meeting by ID
   async getMeetingById(meetingId) {
     const query = `
-      SELECT * FROM meetings 
+      SELECT * FROM meeting_recordings 
       WHERE id = $1
     `;
     
@@ -38,8 +75,8 @@ class MeetingsService {
   // Create new meeting
   async createMeeting(title, description = '', userId = null) {
     const query = `
-      INSERT INTO meetings (title, description, user_id, status, created_at)
-      VALUES ($1, $2, $3, 'active', NOW())
+      INSERT INTO meeting_recordings (title, summary, user_id, created_at)
+      VALUES ($1, $2, $3, NOW())
       RETURNING *
     `;
     
@@ -54,7 +91,7 @@ class MeetingsService {
 
   // Update meeting
   async updateMeeting(meetingId, updates) {
-    const allowedFields = ['title', 'description', 'status', 'transcription'];
+    const allowedFields = ['title', 'transcript', 'summary', 'action_items', 'metadata'];
     const setClause = [];
     const values = [];
     let paramIndex = 1;
@@ -72,7 +109,7 @@ class MeetingsService {
     }
 
     const query = `
-      UPDATE meetings 
+      UPDATE meeting_recordings 
       SET ${setClause.join(', ')}, updated_at = NOW()
       WHERE id = $${paramIndex}
       RETURNING *
@@ -90,7 +127,7 @@ class MeetingsService {
 
   // Delete meeting
   async deleteMeeting(meetingId) {
-    const query = `DELETE FROM meetings WHERE id = $1 RETURNING *`;
+    const query = `DELETE FROM meeting_recordings WHERE id = $1 RETURNING *`;
     
     try {
       const result = await db.query(query, [meetingId]);
@@ -104,8 +141,9 @@ class MeetingsService {
   // Save audio file reference
   async saveAudioFile(meetingId, filename, originalName, size) {
     const query = `
-      UPDATE meetings 
-      SET audio_file = $2, audio_original_name = $3, audio_file_size = $4, updated_at = NOW()
+      UPDATE meeting_recordings 
+      SET metadata = metadata || jsonb_build_object('audio_file', $2, 'audio_original_name', $3, 'audio_file_size', $4), 
+          updated_at = NOW()
       WHERE id = $1
       RETURNING *
     `;
@@ -122,11 +160,41 @@ class MeetingsService {
   // Get meeting audio file path
   async getAudioFilePath(meetingId) {
     const meeting = await this.getMeetingById(meetingId);
-    if (!meeting || !meeting.audio_file) {
+    if (!meeting || !meeting.metadata?.audio_file) {
       return null;
     }
     
-    return path.join(__dirname, '../../uploads/audio', meeting.audio_file);
+    return path.join(__dirname, '../../uploads/audio', meeting.metadata.audio_file);
+  }
+
+  // Start a meeting (updates status)
+  async startMeeting(meetingId) {
+    return this.updateMeeting(meetingId, { metadata: { status: 'active' } });
+  }
+
+  // End a meeting (updates status) 
+  async endMeeting(meetingId) {
+    return this.updateMeeting(meetingId, { metadata: { status: 'ended' } });
+  }
+
+  // Add audio recording to meeting
+  async addAudioRecording(meetingId, audioData) {
+    const metadata = {
+      audio_file: audioData.filename,
+      audio_original_name: audioData.originalName,
+      audio_mimetype: audioData.mimetype,
+      audio_size: audioData.size,
+      audio_path: audioData.path,
+      audio_uploaded_at: audioData.uploadedAt || new Date()
+    };
+    
+    return this.updateMeeting(meetingId, { metadata });
+  }
+
+  // Get transcription for a meeting
+  async getTranscription(meetingId) {
+    const meeting = await this.getMeetingById(meetingId);
+    return meeting?.transcript || null;
   }
 }
 

@@ -44,12 +44,12 @@ CREATE TABLE IF NOT EXISTS notes (
 -- Create device pairing table for QR code connections
 CREATE TABLE IF NOT EXISTS device_pairs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    pairing_code VARCHAR(64) UNIQUE NOT NULL,
-    device_id VARCHAR(255),
-    device_name VARCHAR(255),
+    device_id VARCHAR(255) UNIQUE NOT NULL,
+    device_info JSONB DEFAULT '{}',
+    paired_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    unpaired_at TIMESTAMP WITH TIME ZONE,
     is_active BOOLEAN DEFAULT true,
-    expires_at TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    last_seen TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create meeting recordings table for future phases
@@ -79,7 +79,7 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id ON chat_messages(session
 CREATE INDEX IF NOT EXISTS idx_chat_messages_created_at ON chat_messages(created_at);
 CREATE INDEX IF NOT EXISTS idx_notes_user_id ON notes(user_id);
 CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at);
-CREATE INDEX IF NOT EXISTS idx_device_pairs_code ON device_pairs(pairing_code);
+CREATE INDEX IF NOT EXISTS idx_device_pairs_device_id ON device_pairs(device_id);
 CREATE INDEX IF NOT EXISTS idx_device_pairs_active ON device_pairs(is_active);
 CREATE INDEX IF NOT EXISTS idx_meeting_recordings_user_id ON meeting_recordings(user_id);
 CREATE INDEX IF NOT EXISTS idx_system_status_service ON system_status(service_name);

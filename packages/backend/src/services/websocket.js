@@ -1,58 +1,104 @@
-const WebSocket = require('ws');
-
 class WebSocketService {
   constructor() {
-    this.wss = null;
+    this.io = null;
     this.clients = new Map();
   }
 
-  // Initialize WebSocket server
-  initialize(server) {
-    this.wss = new WebSocket.Server({ server });
+  // Initialize Socket.IO server
+  initialize(io) {
+    this.io = io;
     
-    this.wss.on('connection', (ws, req) => {
-      const clientId = this.generateClientId();
+    this.io.on('connection', (socket) => {
+      const clientId = socket.id;
       this.clients.set(clientId, {
-        ws,
+        socket,
         id: clientId,
         connectedAt: new Date(),
-        lastActivity: new Date()
+        lastActivity: new Date(),
+        type: 'unknown'
       });
 
-      console.log(`WebSocket client connected: ${clientId}`);
+      console.log(`Socket.IO client connected: ${clientId}`);
 
-      // Handle messages
-      ws.on('message', (message) => {
+      // Handle mobile client connection
+      socket.on('mobile_client_connected', (data) => {
+        console.log('Mobile client connected:', data);
+        const client = this.clients.get(clientId);
+        if (client) {
+          client.type = 'mobile';
+          client.deviceInfo = data.deviceInfo;
+          client.lastActivity = new Date();
+        }
+        
+        // Send server info back
+        socket.emit('server_info', {
+          name: 'Nexus Server',
+          version: '1.0.0',
+          timestamp: new Date().toISOString()
+        });
+      });
+
+      // Handle generic messages
+      socket.on('message', (data) => {
         try {
-          const data = JSON.parse(message);
           this.handleMessage(clientId, data);
         } catch (error) {
-          console.error('WebSocket message parsing error:', error);
-          this.sendError(clientId, 'Invalid message format');
+          console.error('Socket.IO message handling error:', error);
+          socket.emit('error', { message: 'Error processing message' });
         }
       });
 
-      // Handle client disconnect
-      ws.on('close', () => {
-        console.log(`WebSocket client disconnected: ${clientId}`);
-        this.clients.delete(clientId);
+      // Handle recording events
+      socket.on('recording_started', (data) => {
+        console.log('Recording started by mobile client:', data);
+        const client = this.clients.get(clientId);
+        if (client) {
+          client.lastActivity = new Date();
+          client.isRecording = true;
+        }
+        
+        // Broadcast to other clients if needed
+        this.broadcastToOthers(clientId, 'recording_started', data);
       });
 
-      // Handle errors
-      ws.on('error', (error) => {
-        console.error(`WebSocket error for client ${clientId}:`, error);
+      socket.on('recording_stopped', (data) => {
+        console.log('Recording stopped by mobile client:', data);
+        const client = this.clients.get(clientId);
+        if (client) {
+          client.lastActivity = new Date();
+          client.isRecording = false;
+        }
+        
+        // Broadcast to other clients if needed
+        this.broadcastToOthers(clientId, 'recording_stopped', data);
+      });
+
+      // Handle audio upload notifications
+      socket.on('audio_uploaded', (data) => {
+        console.log('Audio uploaded by mobile client:', data);
+        const client = this.clients.get(clientId);
+        if (client) {
+          client.lastActivity = new Date();
+        }
+        
+        // Broadcast to other clients if needed
+        this.broadcastToOthers(clientId, 'audio_uploaded', data);
+      });
+
+      // Handle client disconnect
+      socket.on('disconnect', (reason) => {
+        console.log(`Socket.IO client disconnected: ${clientId}, reason: ${reason}`);
         this.clients.delete(clientId);
       });
 
       // Send welcome message
-      this.sendMessage(clientId, {
-        type: 'welcome',
+      socket.emit('welcome', {
         clientId,
         timestamp: new Date().toISOString()
       });
     });
 
-    console.log('WebSocket server initialized');
+    console.log('Socket.IO WebSocket server initialized');
   }
 
   // Generate unique client ID
@@ -104,14 +150,14 @@ class WebSocketService {
   }
 
   // Send message to specific client
-  sendMessage(clientId, data) {
+  sendMessage(clientId, event, data) {
     const client = this.clients.get(clientId);
-    if (!client || client.ws.readyState !== WebSocket.OPEN) {
+    if (!client || !client.socket.connected) {
       return false;
     }
 
     try {
-      client.ws.send(JSON.stringify(data));
+      client.socket.emit(event, data);
       return true;
     } catch (error) {
       console.error(`Error sending message to client ${clientId}:`, error);
@@ -122,30 +168,42 @@ class WebSocketService {
 
   // Send error message
   sendError(clientId, message) {
-    this.sendMessage(clientId, {
-      type: 'error',
+    this.sendMessage(clientId, 'error', {
       message,
       timestamp: new Date().toISOString()
     });
   }
 
   // Broadcast to all clients
-  broadcast(data) {
+  broadcast(event, data) {
     let sentCount = 0;
     for (const [clientId, client] of this.clients) {
-      if (this.sendMessage(clientId, data)) {
+      if (this.sendMessage(clientId, event, data)) {
         sentCount++;
       }
     }
     return sentCount;
   }
 
+  // Broadcast to all clients except sender
+  broadcastToOthers(senderClientId, event, data) {
+    let sentCount = 0;
+    for (const [clientId, client] of this.clients) {
+      if (clientId !== senderClientId) {
+        if (this.sendMessage(clientId, event, data)) {
+          sentCount++;
+        }
+      }
+    }
+    return sentCount;
+  }
+
   // Broadcast to subscribed clients
-  broadcastToChannel(channel, data) {
+  broadcastToChannel(channel, event, data) {
     let sentCount = 0;
     for (const [clientId, client] of this.clients) {
       if (client.subscriptions && client.subscriptions.has(channel)) {
-        if (this.sendMessage(clientId, { ...data, channel })) {
+        if (this.sendMessage(clientId, event, { ...data, channel })) {
           sentCount++;
         }
       }
@@ -185,7 +243,7 @@ class WebSocketService {
     inactiveClients.forEach(clientId => {
       const client = this.clients.get(clientId);
       if (client) {
-        client.ws.terminate();
+        client.socket.disconnect(true);
         this.clients.delete(clientId);
         console.log(`Cleaned up inactive client: ${clientId}`);
       }

@@ -4,9 +4,35 @@ const path = require('path');
 const router = express.Router();
 const transcriptionService = require('../services/transcription');
 
+// Helper function to get file extension from MIME type
+function getExtensionFromMimeType(mimetype) {
+  const mimeToExt = {
+    'audio/wav': '.wav',
+    'audio/mp3': '.mp3',
+    'audio/mpeg': '.mp3',
+    'audio/mp4': '.m4a',
+    'audio/webm': '.webm',
+    'audio/ogg': '.ogg',
+    'video/mp4': '.mp4',
+    'video/webm': '.webm'
+  };
+  return mimeToExt[mimetype] || '.unknown';
+}
+
 // Configure multer for audio uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, '../../uploads/temp'));
+  },
+  filename: function (req, file, cb) {
+    // Preserve original extension or use appropriate one based on mimetype
+    const ext = path.extname(file.originalname) || getExtensionFromMimeType(file.mimetype);
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`);
+  }
+});
+
 const upload = multer({
-  dest: path.join(__dirname, '../../uploads/temp'),
+  storage: storage,
   limits: {
     fileSize: 100 * 1024 * 1024 // 100MB limit
   },
@@ -43,6 +69,56 @@ router.get('/status', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to check transcription service status'
+    });
+  }
+});
+
+// Upload audio from mobile app for transcription
+router.post('/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'Audio file is required'
+      });
+    }
+    
+    const { language = 'auto', model = 'base', format = 'json' } = req.body;
+    
+    // Start transcription
+    const transcriptionId = await transcriptionService.startTranscription({
+      filePath: req.file.path,
+      filename: req.file.originalname,
+      language,
+      model,
+      format,
+      userId: req.user?.id || 'anonymous',
+      source: 'mobile_upload'
+    });
+    
+    // Notify connected clients via WebSocket
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('transcription_started', {
+        transcriptionId,
+        filename: req.file.originalname,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    res.status(202).json({
+      success: true,
+      data: {
+        transcriptionId,
+        status: 'processing',
+        message: 'Audio uploaded and transcription started.'
+      }
+    });
+  } catch (error) {
+    console.error('Error uploading audio:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to upload audio for transcription'
     });
   }
 });

@@ -1,16 +1,14 @@
 import React from 'react';
-import { createRoot } from 'react-dom/client';
+import ReactDOM from 'react-dom';
 import App from './App';
 import { registerSW } from './serviceWorkerRegistration';
 
-// Create root and render app
-const container = document.getElementById('root');
-const root = createRoot(container);
-
-root.render(
+// Render app using React 17 syntax
+ReactDOM.render(
   <React.StrictMode>
     <App />
-  </React.StrictMode>
+  </React.StrictMode>,
+  document.getElementById('root')
 );
 
 // Register service worker for PWA capabilities

@@ -1,7 +1,7 @@
 services:
   # Frontend React application
   frontend:
-    image: node:18-alpine
+    image: node:16-alpine
     working_dir: /app
     ports:
       - "3000:3000"
@@ -9,13 +9,15 @@ services:
       - NODE_ENV=development
       - REACT_APP_BACKEND_URL=http://localhost:3001
       - PORT=3000
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
     volumes:
       - ./apps/web:/app
       - /app/node_modules
     networks:
       - nexus-network
     restart: unless-stopped
-    command: sh -c "npm install --legacy-peer-deps && npm start"
+    command: sh -c "npm install --legacy-peer-deps && FAST_REFRESH=false npm start"
     depends_on:
       - backend
 
@@ -31,6 +33,7 @@ services:
       - FRONTEND_URL=http://localhost:3000
       - DATABASE_URL=postgresql://nexus:nexus_password@database:5432/nexus
       - OLLAMA_URL=http://ollama:11434
+      - TRANSCRIPTION_SERVICE_URL=http://transcription:8000
     volumes:
       - ./packages/backend:/app
       - /app/node_modules
@@ -41,6 +44,8 @@ services:
         condition: service_healthy
       ollama:
         condition: service_started
+      transcription:
+        condition: service_healthy
     networks:
       - nexus-network
     restart: unless-stopped
@@ -87,6 +92,37 @@ services:
     #           capabilities: [gpu]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/api/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Whisper Transcription Service
+  transcription:
+    build:
+      context: ./packages/transcription-service
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - NODE_ENV=development
+      - HOST=0.0.0.0
+      - PORT=8000
+    volumes:
+      - ./uploads:/app/uploads
+      - transcription-models:/app/models
+    networks:
+      - nexus-network
+    restart: unless-stopped
+    # Uncomment for GPU support (NVIDIA)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
