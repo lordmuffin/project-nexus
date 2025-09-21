@@ -13,7 +13,7 @@ services:
       - WATCHPACK_POLLING=true
     volumes:
       - type: bind
-        source: /mnt/c/Users/andre/Github/project-nexus/apps/web
+        source: ./apps/web
         target: /source
         read_only: true
       - /app/node_modules
