@@ -12,7 +12,9 @@ services:
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
     volumes:
-      - ./apps/web:/app:cached
+      - type: bind
+        source: ./apps/web
+        target: /app
       - /app/node_modules
     networks:
       - nexus-network
