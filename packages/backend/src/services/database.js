@@ -88,9 +88,15 @@ class DatabaseService {
   // Health check
   async healthCheck() {
     try {
-      await this.pool.query('SELECT 1');
+      if (!this.pool) {
+        return { status: 'not_initialized', error: 'Database pool not initialized', timestamp: new Date().toISOString() };
+      }
+      
+      const result = await this.pool.query('SELECT 1 as healthy');
+      console.log('Database health check successful:', result.rows[0]);
       return { status: 'connected', timestamp: new Date().toISOString() };
     } catch (error) {
+      console.error('Database health check failed:', error.message);
       return { status: 'error', error: error.message, timestamp: new Date().toISOString() };
     }
   }

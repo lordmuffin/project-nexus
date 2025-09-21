@@ -8,6 +8,9 @@ router.get('/', async (req, res) => {
     const dbHealth = await dbService.healthCheck();
     const transcriptionHealth = await checkTranscriptionService();
     
+    console.log('Health check - Database response:', dbHealth);
+    console.log('Health check - Transcription response:', transcriptionHealth);
+    
     const healthStatus = {
       status: dbHealth.status === 'connected' ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
@@ -26,6 +29,7 @@ router.get('/', async (req, res) => {
       }
     };
 
+    console.log('Health check response:', healthStatus);
     res.json(healthStatus);
   } catch (error) {
     console.error('Health check error:', error);

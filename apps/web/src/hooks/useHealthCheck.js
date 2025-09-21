@@ -15,6 +15,9 @@ export function useHealthCheck() {
       const backendResponse = await fetch(`${API_BASE}/api/health`);
       const backendData = await backendResponse.json();
       
+      console.log('Backend health response:', backendData);
+      console.log('Database service data:', backendData.services?.database);
+      
       // Check chat/LLM health
       const ollamaResponse = await fetch(`${API_BASE}/api/chat/health`);
       const ollamaData = await ollamaResponse.json();
