@@ -20,8 +20,9 @@ class DatabaseService {
 
       console.log('✅ Database initialized successfully');
     } catch (error) {
-      console.error('❌ Database initialization failed:', error);
-      throw error;
+      console.warn('⚠️ Database connection failed, running without persistent storage:', error.message);
+      this.pool = null; // Set to null to indicate no database
+      // Don't throw error - allow server to start without database
     }
   }
 
@@ -33,6 +34,10 @@ class DatabaseService {
 
   // PostgreSQL query methods
   async query(sql, params = []) {
+    if (!this.pool) {
+      console.warn('Database not available, skipping query:', sql.substring(0, 50) + '...');
+      return { rows: [], rowCount: 0 };
+    }
     try {
       const result = await this.pool.query(sql, params);
       return result;

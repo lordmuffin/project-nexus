@@ -8,7 +8,7 @@ const ollamaService = require('../services/ollama');
 
 // Configure multer for file uploads
 const upload = multer({
-  dest: path.join(__dirname, '../../uploads/audio'),
+  dest: '/tmp/nexus-uploads',
   limits: {
     fileSize: 100 * 1024 * 1024 // 100MB limit
   },
