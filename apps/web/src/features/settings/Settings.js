@@ -3,7 +3,7 @@ import { useTheme } from '../../lib/theme';
 import { useHealthCheck } from '../../hooks/useHealthCheck';
 import './Settings.css';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+const API_BASE = process.env.REACT_APP_API_URL || `http://${window.location.hostname}:3001`;
 
 function Settings() {
   const { theme, toggleTheme } = useTheme();
