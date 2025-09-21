@@ -8,10 +8,7 @@ const DYNAMIC_CACHE_NAME = 'nexus-dynamic-v1.0.0';
 // Cache essential files for offline usage
 const STATIC_ASSETS = [
   '/',
-  '/static/js/bundle.js',
-  '/static/css/main.css',
-  '/manifest.json',
-  '/favicon.ico'
+  '/manifest.json'
 ];
 
 // Cache API responses temporarily
@@ -100,7 +97,17 @@ self.addEventListener('fetch', (event) => {
                 });
               }
               
-              throw new Error('No cache available');
+              // Return a fallback response instead of throwing error
+              return new Response(JSON.stringify({
+                success: false,
+                error: 'Service temporarily unavailable',
+                offline: true
+              }), {
+                status: 503,
+                headers: {
+                  'Content-Type': 'application/json'
+                }
+              });
             });
         })
     );
@@ -157,7 +164,7 @@ self.addEventListener('push', (event) => {
   
   const options = {
     body: event.data ? event.data.text() : 'New notification from Nexus',
-    icon: '/logo192.png',
+    icon: '/favicon.ico',
     badge: '/favicon.ico',
     vibrate: [100, 50, 100],
     data: {
@@ -168,7 +175,7 @@ self.addEventListener('push', (event) => {
       {
         action: 'explore',
         title: 'Open Nexus',
-        icon: '/logo192.png'
+        icon: '/favicon.ico'
       },
       {
         action: 'close',
