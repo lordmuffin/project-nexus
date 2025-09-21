@@ -26,9 +26,10 @@ export function useHealthCheck() {
           data: backendData
         },
         database: {
-          status: backendData.database?.status === 'connected' ? 'healthy' : 'unhealthy',
-          timestamp: backendData.database?.timestamp || new Date().toISOString(),
-          data: backendData.database
+          status: backendData.services?.database === 'connected' || 
+                  (backendData.services?.database?.status === 'connected') ? 'healthy' : 'unhealthy',
+          timestamp: backendData.services?.database?.timestamp || backendData.timestamp || new Date().toISOString(),
+          data: backendData.services?.database
         },
         ollama: {
           status: ollamaData.success && ollamaData.data?.status === 'healthy' ? 'healthy' : 'unhealthy',

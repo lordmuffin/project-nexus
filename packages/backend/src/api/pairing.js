@@ -28,9 +28,15 @@ router.post('/generate-qr', async (req, res) => {
     });
     
     // Create pairing data
+    const host = req.get('host');
+    const protocol = req.secure ? 'https' : 'http';
+    const wsProtocol = req.secure ? 'wss' : 'ws';
+    
     const pairingData = {
       token,
-      serverUrl: `ws://${req.get('host')}`,
+      serverUrl: `${protocol}://${host}`,
+      websocketUrl: `${wsProtocol}://${host}`,
+      apiUrl: `${protocol}://${host}/api`,
       expiresAt
     };
     
@@ -60,6 +66,11 @@ router.post('/generate-qr', async (req, res) => {
     });
     
     console.log(`Generated pairing token: ${token.substring(0, 8)}... (expires in 5 minutes)`);
+    console.log(`Pairing data:`, {
+      serverUrl: pairingData.serverUrl,
+      websocketUrl: pairingData.websocketUrl,
+      apiUrl: pairingData.apiUrl
+    });
     
   } catch (error) {
     console.error('QR generation error:', error);
@@ -74,6 +85,9 @@ router.post('/generate-qr', async (req, res) => {
 router.post('/validate-token', async (req, res) => {
   try {
     const { token, deviceInfo } = req.body;
+    
+    console.log(`Token validation attempt for: ${token ? token.substring(0, 8) + '...' : 'null'}`);
+    console.log(`Device info:`, deviceInfo);
     
     if (!token) {
       return res.status(400).json({
