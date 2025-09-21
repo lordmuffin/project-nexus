@@ -1,0 +1,79 @@
+{
+  "short_name": "Nexus",
+  "name": "Project Nexus - AI-Powered Local Productivity Suite",
+  "description": "Privacy-focused productivity suite with AI transcription and collaboration tools",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#2563eb",
+  "background_color": "#f8fafc",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "categories": ["productivity", "business", "utilities"],
+  "screenshots": [
+    {
+      "src": "screenshot-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Dashboard view of Project Nexus"
+    },
+    {
+      "src": "screenshot-narrow.png",
+      "sizes": "720x1280",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Mobile view of Project Nexus"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Meeting",
+      "short_name": "Meeting",
+      "description": "Start a new meeting with transcription",
+      "url": "/meetings?action=new",
+      "icons": [
+        {
+          "src": "icons/meeting-96.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "short_name": "Chat",
+      "description": "Open AI chat interface",
+      "url": "/chat",
+      "icons": [
+        {
+          "src": "icons/chat-96.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "related_applications": [
+    {
+      "platform": "play",
+      "url": "https://play.google.com/store/apps/details?id=com.nexus.companion",
+      "id": "com.nexus.companion"
+    }
+  ],
+  "prefer_related_applications": false
+}
