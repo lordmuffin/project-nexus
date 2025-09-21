@@ -4,7 +4,7 @@
   "description": "Project Nexus Web Application",
   "private": true,
   "scripts": {
-    "start": "ESLINT_NO_DEV_ERRORS=true react-scripts start",
+    "start": "react-scripts start",
     "build": "react-scripts --openssl-legacy-provider build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
