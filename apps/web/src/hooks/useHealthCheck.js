@@ -1,6 +1,18 @@
 import { useState, useEffect } from 'react';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+// Dynamic API base URL that works with actual host IP
+const getApiBase = () => {
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  
+  // Use current hostname with port 3001 for backend
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname;
+  return `${protocol}//${hostname}:3001`;
+};
+
+const API_BASE = getApiBase();
 
 export function useHealthCheck() {
   const [health, setHealth] = useState({

@@ -124,9 +124,9 @@ async function startServer() {
     // Initialize Ollama service
     await ollamaService.initialize();
     
-    server.listen(PORT, () => {
-      console.log(`🚀 Nexus Backend Server running on port ${PORT}`);
-      console.log(`📡 WebSocket server ready`);
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Nexus Backend Server running on 0.0.0.0:${PORT}`);
+      console.log(`📡 WebSocket server ready on 0.0.0.0:${PORT}`);
       console.log(`🤖 AI service initialized`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
       
@@ -134,6 +134,7 @@ async function startServer() {
         console.log(`🔗 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
         console.log(`🔗 Database URL: ${process.env.DATABASE_URL || 'postgresql://nexus:nexus_password@localhost:5432/nexus'}`);
         console.log(`🔗 Ollama URL: ${process.env.OLLAMA_URL || 'http://localhost:11434'}`);
+        console.log(`🔗 Access server at: http://localhost:${PORT} or http://[YOUR_IP]:${PORT}`);
       }
     });
   } catch (error) {

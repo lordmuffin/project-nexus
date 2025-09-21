@@ -8,9 +8,12 @@ services:
     environment:
       - NODE_ENV=development
       - REACT_APP_BACKEND_URL=http://localhost:3001
+      - REACT_APP_WS_URL=ws://localhost:3001
       - PORT=3000
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
+      - HOST=0.0.0.0
+      - WDS_SOCKET_HOST=0.0.0.0
     volumes:
       - type: bind
         source: ./apps/web

@@ -1,7 +1,20 @@
 import React, { useState, useEffect } from 'react';
+import { io } from 'socket.io-client';
 import './Meetings.css';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+// Dynamic API base URL that works with actual host IP
+const getApiBase = () => {
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  
+  // Use current hostname with port 3001 for backend
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname;
+  return `${protocol}//${hostname}:3001`;
+};
+
+const API_BASE = getApiBase();
 
 function Meetings() {
   const [meetings, setMeetings] = useState([]);
@@ -31,49 +44,75 @@ function Meetings() {
   };
 
   const setupWebSocketListeners = () => {
-    // Set up WebSocket connection for live updates
-    const ws = new WebSocket(`ws://localhost:3001`);
+    // Set up Socket.IO connection for live updates
+    const protocol = window.location.protocol;
+    const hostname = window.location.hostname;
+    const socketUrl = process.env.REACT_APP_WS_URL || `${protocol}//${hostname}:3001`;
     
-    ws.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        
-        switch (message.type) {
-          case 'transcription_started':
-            setIsRecording(true);
-            setLiveTranscription('Starting transcription...');
-            break;
-            
-          case 'transcription_progress':
-            setLiveTranscription(prev => prev + ' ' + (message.text || ''));
-            break;
-            
-          case 'transcription_completed':
-            setIsRecording(false);
-            if (message.transcriptionId) {
-              fetchTranscriptionResult(message.transcriptionId);
-            }
-            break;
-            
-          case 'recording_started':
-            setIsRecording(true);
-            setLiveTranscription('Recording started...');
-            break;
-            
-          case 'recording_stopped':
-            setIsRecording(false);
-            break;
-            
-          default:
-            console.log('Unknown WebSocket message:', message);
-        }
-      } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
+    console.log('Connecting to Socket.IO server:', socketUrl);
+    const socket = io(socketUrl, {
+      autoConnect: true,
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+      timeout: 20000,
+    });
+
+    // Connection events
+    socket.on('connect', () => {
+      console.log('Socket.IO connected:', socket.id);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('Socket.IO disconnected:', reason);
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('Socket.IO connection error:', error);
+    });
+
+    // Meeting/transcription events
+    socket.on('transcription_started', (message) => {
+      console.log('Transcription started:', message);
+      setIsRecording(true);
+      setLiveTranscription('Starting transcription...');
+    });
+
+    socket.on('transcription_progress', (message) => {
+      console.log('Transcription progress:', message);
+      setLiveTranscription(prev => prev + ' ' + (message.text || ''));
+    });
+
+    socket.on('transcription_completed', (message) => {
+      console.log('Transcription completed:', message);
+      setIsRecording(false);
+      if (message.transcriptionId) {
+        fetchTranscriptionResult(message.transcriptionId);
       }
-    };
+    });
+
+    socket.on('recording_started', (message) => {
+      console.log('Recording started:', message);
+      setIsRecording(true);
+      setLiveTranscription('Recording started...');
+    });
+
+    socket.on('recording_stopped', (message) => {
+      console.log('Recording stopped:', message);
+      setIsRecording(false);
+    });
+
+    // Device pairing events
+    socket.on('device_paired', (message) => {
+      console.log('Device paired:', message);
+    });
+
+    socket.on('device_unpaired', (message) => {
+      console.log('Device unpaired:', message);
+    });
 
     return () => {
-      ws.close();
+      socket.disconnect();
     };
   };
 
