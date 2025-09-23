@@ -43,9 +43,6 @@ app.use(helmet({
 }));
 
 app.use(cors({
-<<<<<<< Updated upstream
-  origin: process.env.FRONTEND_URL || /^http:\/\/.*:3000$/,
-=======
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or Postman)
     if (!origin) return callback(null, true);
@@ -67,7 +64,6 @@ app.use(cors({
     
     return callback(null, true); // For now, allow all origins for mobile pairing
   },
->>>>>>> Stashed changes
   credentials: true
 }));
 

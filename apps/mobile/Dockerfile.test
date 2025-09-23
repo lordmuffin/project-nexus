@@ -1,0 +1,39 @@
+# Dockerfile for mobile app testing
+FROM node:18-alpine AS test-base
+
+# Install dependencies for native modules
+RUN apk add --no-cache \
+    bash \
+    git \
+    python3 \
+    make \
+    g++ \
+    curl
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Set environment variables for testing
+ENV NODE_ENV=test
+ENV CI=true
+
+# Install Expo CLI globally
+RUN npm install -g @expo/cli@latest
+
+# Create test user (non-root for security)
+RUN addgroup -g 1001 -S testuser && \
+    adduser -S testuser -u 1001 -G testuser && \
+    chown -R testuser:testuser /app
+
+USER testuser
+
+# Default command
+CMD ["npm", "run", "test:ci"]

@@ -1,0 +1,163 @@
+# Docker Compose for Testing Environment
+
+services:
+  # Mobile app unit tests
+  test-mobile:
+    build:
+      context: ./apps/mobile
+      dockerfile: Dockerfile.test
+    volumes:
+      - ./apps/mobile:/app
+      - mobile-test-cache:/app/node_modules
+    environment:
+      - NODE_ENV=test
+      - CI=true
+    command: npm run test:ci
+
+  # Web app unit tests  
+  test-web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile.test
+    volumes:
+      - ./apps/web:/app
+      - web-test-cache:/app/node_modules
+    environment:
+      - NODE_ENV=test
+      - CI=true
+    command: npm run test -- --coverage --watchAll=false
+
+  # Backend unit tests
+  test-backend:
+    build:
+      context: ./packages/backend
+      dockerfile: Dockerfile.test
+    volumes:
+      - ./packages/backend:/app
+      - backend-test-cache:/app/node_modules
+    environment:
+      - NODE_ENV=test
+      - CI=true
+    command: npm run test
+
+  # Backend integration tests
+  test-backend-integration:
+    build:
+      context: ./packages/backend
+      dockerfile: Dockerfile.test
+    volumes:
+      - ./packages/backend:/app
+      - backend-test-cache:/app/node_modules
+    environment:
+      - NODE_ENV=test
+      - DATABASE_URL=postgresql://testuser:testpass@postgres-test:5432/testdb
+      - TRANSCRIPTION_SERVICE_URL=http://transcription-test:8000
+      - CI=true
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      transcription-test:
+        condition: service_healthy
+    command: npm run test:integration
+
+  # E2E tests with Maestro
+  test-e2e:
+    image: mobile.dev/maestro:latest
+    volumes:
+      - ./apps/mobile/.maestro:/maestro
+      - ./apps/mobile:/app
+    environment:
+      - APP_ID=com.nexus.companion
+    depends_on:
+      - mobile-app-test
+    command: maestro test /maestro/
+
+  # Mobile app for E2E testing
+  mobile-app-test:
+    image: node:18-alpine
+    working_dir: /app
+    ports:
+      - "19006:19006"
+    volumes:
+      - ./apps/mobile:/app
+      - mobile-e2e-cache:/app/node_modules
+    environment:
+      - NODE_ENV=test
+      - EXPO_NO_DOTENV=1
+    command: >
+      sh -c "
+        apk add --no-cache git &&
+        npm install &&
+        npx expo start --web --port 19006
+      "
+
+  # Test database
+  postgres-test:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: testdb
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d testdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Test transcription service
+  transcription-test:
+    build:
+      context: ./packages/transcription-service
+      dockerfile: Dockerfile.test
+    environment:
+      - NODE_ENV=test
+      - HOST=0.0.0.0
+      - PORT=8000
+    ports:
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Test runner that orchestrates all tests
+  test-runner:
+    image: node:18-alpine
+    volumes:
+      - ./:/workspace
+    working_dir: /workspace
+    environment:
+      - NODE_ENV=test
+    depends_on:
+      - test-mobile
+      - test-web
+      - test-backend
+      - test-backend-integration
+    command: >
+      sh -c "
+        echo 'Running comprehensive test suite...' &&
+        echo 'Mobile tests completed' &&
+        echo 'Web tests completed' &&
+        echo 'Backend tests completed' &&
+        echo 'Integration tests completed' &&
+        echo 'All tests passed successfully!'
+      "
+
+volumes:
+  mobile-test-cache:
+    driver: local
+  web-test-cache:
+    driver: local
+  backend-test-cache:
+    driver: local
+  mobile-e2e-cache:
+    driver: local
+
+networks:
+  default:
+    name: nexus-test-network

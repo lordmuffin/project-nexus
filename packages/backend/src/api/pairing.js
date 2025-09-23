@@ -225,13 +225,9 @@ router.post('/generate-qr', async (req, res) => {
     
     const pairingData = {
       token,
-<<<<<<< Updated upstream
-      serverUrl: `${protocol}://${host}`,
-      websocketUrl: `${wsProtocol}://${host}`,
-      apiUrl: `${protocol}://${host}/api`,
-=======
-      serverUrl: `ws://${hostIP}:${port}`,
->>>>>>> Stashed changes
+      serverUrl: `${protocol}://${hostIP}:${port}`,
+      websocketUrl: `${wsProtocol}://${hostIP}:${port}`,
+      apiUrl: `${protocol}://${hostIP}:${port}/api`,
       expiresAt
     };
     
@@ -261,15 +257,12 @@ router.post('/generate-qr', async (req, res) => {
     });
     
     console.log(`Generated pairing token: ${token.substring(0, 8)}... (expires in 5 minutes)`);
-<<<<<<< Updated upstream
     console.log(`Pairing data:`, {
       serverUrl: pairingData.serverUrl,
       websocketUrl: pairingData.websocketUrl,
       apiUrl: pairingData.apiUrl
     });
-=======
     console.log(`Mobile app should connect to: ws://${hostIP}:${port}`);
->>>>>>> Stashed changes
     
   } catch (error) {
     console.error('QR generation error:', error);

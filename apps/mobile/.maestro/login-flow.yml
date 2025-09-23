@@ -1,0 +1,29 @@
+# Maestro E2E Test: Basic App Navigation Flow
+appId: com.nexus.companion
+---
+- launchApp
+- assertVisible: "Nexus Companion"
+- assertVisible: "Remote Microphone"
+- assertVisible: "Start Recording"
+- assertVisible: "Scan QR Code"
+- assertVisible: "Settings"
+
+# Test navigation to QR Scanner
+- tapOn: "Scan QR Code"
+- assertVisible: "Scan QR Code"
+- goBack
+
+# Test navigation to Settings
+- tapOn: "Settings"
+- assertVisible: "Settings"
+- goBack
+
+# Test recording button (should show not connected alert)
+- tapOn: "Start Recording"
+- assertVisible: "Not Connected"
+- tapOn: "OK"
+
+# Test manual connection prompt
+- tapOn: "Connect Manually"
+- assertVisible: "Connect to Server"
+- tapOn: "Cancel"
