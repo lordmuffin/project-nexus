@@ -62,13 +62,18 @@ nexus/
 
 2. **Start all services**
    ```bash
+   # Basic services (web, backend, database, AI)
    pnpm run docker:up
+   
+   # Include mobile development server
+   pnpm run docker:up:full
    ```
 
 3. **Access the applications**
    - Web interface: http://localhost:3000
    - Backend API: http://localhost:3001
    - Transcription service: http://localhost:8000
+   - Mobile dev server: http://localhost:19000 (Expo DevTools)
 
 ### Development Setup
 
@@ -86,6 +91,7 @@ nexus/
    pnpm run web        # Web app only
    pnpm run backend    # Backend only
    pnpm run desktop    # Desktop app only
+   pnpm run mobile     # Mobile app only (requires Expo CLI)
    ```
 
 3. **Build for production**
@@ -103,7 +109,9 @@ nexus/
 - `pnpm run type-check` - Type check all TypeScript
 
 ### Docker Commands
-- `pnpm run docker:up` - Start all services with Docker
+- `pnpm run docker:up` - Start core services (web, backend, database, AI)
+- `pnpm run docker:up:full` - Start all services including mobile development server
+- `pnpm run docker:up:dev` - Start development profile services
 - `pnpm run docker:down` - Stop all Docker services
 - `pnpm run docker:build` - Build Docker images
 - `pnpm run docker:logs` - View service logs
@@ -112,6 +120,7 @@ nexus/
 - `pnpm run web` - Start web development server
 - `pnpm run backend` - Start backend development server
 - `pnpm run desktop` - Start desktop app in development
+- `pnpm run mobile` - Start mobile development server (Expo)
 - `pnpm run transcription` - Start transcription service
 
 ## 🐳 Docker Deployment
@@ -157,13 +166,35 @@ The transcription service supports multiple Whisper models:
 
 ## 📱 Mobile Companion
 
-The mobile companion app is available in a separate repository: `nexus-companion`
+The mobile companion app is now integrated into the monorepo at `apps/mobile/`.
 
-Features:
-- Remote microphone for meetings
-- Real-time connection status
-- Simple recording controls
-- Local network discovery
+### Features
+- 📱 **QR Code Pairing**: Scan QR codes from desktop settings for secure device pairing
+- 🎤 **Remote Recording**: Use your mobile device as a remote microphone for meetings
+- 🔄 **Real-time Connection**: WebSocket connection for instant status updates
+- 🔒 **Privacy-First**: All data processing happens locally on your network
+
+### Getting Started
+1. **Start the mobile development server**:
+   ```bash
+   pnpm run mobile
+   # or include in full Docker setup
+   pnpm run docker:up:full
+   ```
+
+2. **Install Expo Go** on your mobile device from the App Store or Google Play
+
+3. **Connect to the development server**:
+   - Scan the QR code displayed in the terminal with Expo Go
+   - Make sure your mobile device and development machine are on the same WiFi network
+
+4. **Pair with desktop**:
+   - Open Nexus Desktop → Settings → Device Pairing
+   - Generate a QR code
+   - In the mobile app, tap "Scan QR Code" and scan the generated code
+
+### Development
+The mobile app is built with React Native and Expo, located in `apps/mobile/`. See the [mobile app README](apps/mobile/README.md) for detailed development instructions.
 
 ## 🤝 Contributing
 

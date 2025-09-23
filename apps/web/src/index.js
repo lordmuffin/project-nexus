@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { ThemeProvider } from './lib/theme';
 import { registerSW } from './serviceWorkerRegistration';
 
 // Render app using React 18 syntax
@@ -8,7 +9,13 @@ const container = document.getElementById('root');
 const root = createRoot(container);
 root.render(
   <React.StrictMode>
+<<<<<<< Updated upstream
     <App />
+=======
+    <ThemeProvider>
+      <App />
+    </ThemeProvider>
+>>>>>>> Stashed changes
   </React.StrictMode>
 );
 

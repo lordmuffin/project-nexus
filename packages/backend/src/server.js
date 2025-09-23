@@ -43,7 +43,31 @@ app.use(helmet({
 }));
 
 app.use(cors({
+<<<<<<< Updated upstream
   origin: process.env.FRONTEND_URL || /^http:\/\/.*:3000$/,
+=======
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or Postman)
+    if (!origin) return callback(null, true);
+    
+    // Allow specific origins
+    const allowedOrigins = [
+      process.env.FRONTEND_URL || "http://localhost:3000",
+      "http://localhost:8082", // Expo dev server
+      "http://192.168.1.61:3000", // Network access to frontend
+      "http://192.168.1.61:8082", // Network access to Expo
+    ];
+    
+    // Allow any origin that starts with our network IP for mobile apps
+    if (origin.startsWith('http://192.168.1.61') || 
+        origin.startsWith('http://localhost') ||
+        allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    return callback(null, true); // For now, allow all origins for mobile pairing
+  },
+>>>>>>> Stashed changes
   credentials: true
 }));
 

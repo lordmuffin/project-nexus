@@ -14,11 +14,40 @@ function Settings() {
   const generateQRCode = async () => {
     try {
       setIsGeneratingQR(true);
+      
+      // Auto-detect the host IP for mobile device access
+      const getHostIP = () => {
+        // Try to get the actual host IP that mobile devices can reach
+        // First check if we're accessed via IP
+        const hostname = window.location.hostname;
+        if (/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(hostname) && !hostname.startsWith('127.')) {
+          return hostname;
+        }
+        
+        // If accessed via localhost, we need to provide the actual network IP
+        // In a real deployment, this might come from environment variables or detection
+        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+          // For development, try to determine the network IP
+          // This could be configured or detected by the backend
+          return null; // Let backend handle detection
+        }
+        
+        return hostname;
+      };
+      
+      const hostIP = getHostIP();
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+      
+      // Add host override if we detected a specific IP
+      if (hostIP) {
+        headers['X-Host-Override'] = hostIP;
+      }
+      
       const response = await fetch(`${API_BASE}/api/pairing/generate-qr`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
       });
 
       const data = await response.json();

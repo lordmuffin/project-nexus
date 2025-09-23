@@ -12,18 +12,46 @@ services:
       - PORT=3000
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
-      - HOST=0.0.0.0
-      - WDS_SOCKET_HOST=0.0.0.0
+      - DISABLE_ESLINT_PLUGIN=true
+      - GENERATE_SOURCEMAP=false
+      - CI=true
+      - SKIP_PREFLIGHT_CHECK=true
+      - BABEL_CACHE_PATH=/tmp/.babel-cache
+      - ESLINT_NO_DEV_ERRORS=true
+      - NODE_OPTIONS=--openssl-legacy-provider
     volumes:
-      - type: bind
-        source: ./apps/web
-        target: /source
-        read_only: true
-      - /app/node_modules
+      - ./apps/web:/app
+      - cache-volume:/tmp
     networks:
       - nexus-network
     restart: unless-stopped
-    command: sh -c "cp -r /source/. /app/ 2>/dev/null || true && npm install --legacy-peer-deps && FAST_REFRESH=false npm start"
+    command: sh -c "chmod 777 /tmp && chown -R node:node /app && cd /app && rm -rf node_modules package-lock.json && npm cache clean --force && npm install && NODE_OPTIONS='--openssl-legacy-provider' npm start"
+    depends_on:
+      - backend
+
+  # Mobile Expo development server
+  mobile:
+    image: node:20-alpine
+    working_dir: /app
+    ports:
+      - "8081:8081"    # Metro bundler port
+      - "19000:19000"  # Expo CLI port
+      - "19001:19001"  # Expo CLI port
+      - "19002:19002"  # Expo CLI port
+    environment:
+      - NODE_ENV=development
+      - EXPO_USE_FAST_RESOLVER=1
+      - EXPO_NO_DOTENV=1
+      - CHOKIDAR_USEPOLLING=true
+      - CI=false
+    volumes:
+      - ../nexus-companion:/app
+      - mobile-cache:/root/.expo
+      - mobile-npm-cache:/root/.npm
+    networks:
+      - nexus-network
+    restart: unless-stopped
+    command: sh -c "apk add --no-cache git && npm cache clean --force && rm -rf /usr/local/lib/node_modules/@expo && npm install -g @expo/cli@latest && cd /app && rm -rf node_modules package-lock.json && npm install --legacy-peer-deps && npx expo install --fix && npx expo start --port 8081 --host lan --clear"
     depends_on:
       - backend
 
@@ -151,6 +179,12 @@ volumes:
   postgres_data:
     driver: local
   ollama_data:
+    driver: local
+  cache-volume:
+    driver: local
+  mobile-cache:
+    driver: local
+  mobile-npm-cache:
     driver: local
   # redis_data:
   #   driver: local

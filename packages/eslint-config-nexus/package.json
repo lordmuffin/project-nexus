@@ -24,6 +24,12 @@
     "eslint-plugin-react": "^7.28.0",
     "eslint-plugin-react-hooks": "^4.3.0",
     "typescript": "^5.0.0"
+<<<<<<< Updated upstream
+=======
+  },
+  "engines": {
+    "node": ">=18.0.0"
+>>>>>>> Stashed changes
   },
   "dependencies": {},
   "files": [

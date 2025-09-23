@@ -11,6 +11,7 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev --parallel",
+    "dev:full": "turbo run dev --parallel && pnpm run docker:up",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "type-check": "turbo run type-check",
@@ -19,12 +20,15 @@
     "start": "turbo run start --parallel",
     "docker:build": "docker-compose build",
     "docker:up": "docker-compose up -d",
+    "docker:up:full": "docker-compose -f docker-compose.yml -f docker-compose.dev.yml --profile full up -d",
+    "docker:up:dev": "docker-compose -f docker-compose.yml -f docker-compose.dev.yml --profile dev up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
     "setup": "pnpm install && pnpm run build",
     "desktop": "pnpm --filter desktop dev",
     "web": "pnpm --filter nexus-web start",
     "backend": "pnpm --filter nexus-backend dev",
+    "mobile": "pnpm --filter @nexus/mobile start",
     "transcription": "docker-compose up transcription-service"
   },
   "keywords": [
@@ -39,8 +43,8 @@
   "author": "Project Nexus Team",
   "license": "MIT",
   "devDependencies": {
-    "@turbo/gen": "^1.10.12",
-    "turbo": "^1.10.12",
+    "@turbo/gen": "^1.13.4",
+    "turbo": "^1.13.4",
     "prettier": "^3.0.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",

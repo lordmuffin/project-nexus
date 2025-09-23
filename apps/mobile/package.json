@@ -1,0 +1,43 @@
+{
+  "name": "@nexus/mobile",
+  "version": "1.0.0",
+  "description": "Project Nexus Mobile Companion App",
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
+  },
+  "keywords": [
+    "nexus",
+    "companion",
+    "mobile",
+    "react-native",
+    "expo"
+  ],
+  "author": "Project Nexus Team",
+  "license": "MIT",
+  "dependencies": {
+    "@react-navigation/native": "^6.1.7",
+    "@react-navigation/stack": "^6.3.17",
+    "expo": "~50.0.0",
+    "expo-av": "~14.0.0",
+    "expo-barcode-scanner": "~13.0.0",
+    "expo-network": "~6.0.0",
+    "expo-status-bar": "~1.11.0",
+    "react": "18.2.0",
+    "react-native": "0.73.0",
+    "react-native-gesture-handler": "~2.14.0",
+    "react-native-safe-area-context": "~4.8.0",
+    "react-native-screens": "~3.29.0",
+    "socket.io-client": "^4.7.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/project-nexus.git"
+  }
+}
