@@ -29,6 +29,13 @@
     "web": "pnpm --filter nexus-web start",
     "backend": "pnpm --filter nexus-backend dev",
     "mobile": "pnpm --filter @nexus/mobile start",
+    "flutter": "cd apps/nexus_app && flutter run",
+    "flutter:build": "cd apps/nexus_app && flutter build apk --release",
+    "flutter:test": "cd apps/nexus_app && flutter test",
+    "flutter:analyze": "cd apps/nexus_app && flutter analyze",
+    "flutter:format": "cd apps/nexus_app && dart format .",
+    "flutter:clean": "cd apps/nexus_app && flutter clean",
+    "flutter:pub": "cd apps/nexus_app && flutter pub get",
     "transcription": "docker-compose up transcription-service"
   },
   "keywords": [

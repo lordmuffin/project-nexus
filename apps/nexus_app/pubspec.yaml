@@ -1,0 +1,83 @@
+name: nexus_app
+description: Privacy-first AI productivity suite
+version: 1.0.0+1
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # State Management
+  flutter_riverpod: ^2.5.0
+  riverpod_annotation: ^2.3.0
+  
+  # Navigation
+  go_router: ^13.0.0
+  
+  # Local Storage
+  shared_preferences: ^2.2.0
+  flutter_secure_storage: ^9.0.0
+  
+  # Utilities
+  logger: ^2.0.0
+  uuid: ^4.3.0
+  intl: ^0.19.0
+  
+  # Database
+  drift: ^2.15.0
+  sqlite3_flutter_libs: ^0.5.0
+  path_provider: ^2.1.0
+  path: ^1.9.0
+  
+  # Mock Data
+  faker: ^2.1.0
+  
+  # Audio
+  record: ^5.0.0
+  just_audio: ^0.9.0
+  permission_handler: ^11.0.0
+  
+  # ML Kit & Speech-to-Text
+  google_mlkit_language_id: ^0.5.0
+  speech_to_text: ^6.3.0
+  tflite_flutter: ^0.10.0
+  
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  build_runner: ^2.4.0
+  riverpod_generator: ^2.3.0
+  riverpod_lint: ^2.3.0
+  mockito: ^5.4.0
+  golden_toolkit: ^0.15.0
+  
+  # Drift code generation
+  drift_dev: ^2.15.0
+
+flutter:
+  uses-material-design: true
+  generate: true
+
+flutter_gen:
+  output: lib/gen/
+  line_length: 80
+
+  integrations:
+    flutter_svg: true
+    flare_flutter: true
+    rive: true
+    lottie: true
+
+  fonts:
+    - family: Nexus
+      fonts:
+        - asset: fonts/nexus_regular.ttf
+        - asset: fonts/nexus_bold.ttf
+          weight: 700
