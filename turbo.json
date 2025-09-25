@@ -23,6 +23,15 @@
     },
     "clean": {
       "cache": false
-    }
+    },
+    "flutter:build": {
+      "dependsOn": ["^build"],
+      "outputs": ["build/**"]
+    },
+    "flutter:test": {
+      "outputs": ["coverage/**"]
+    },
+    "flutter:analyze": {},
+    "flutter:format": {}
   }
 }
