@@ -6,6 +6,7 @@ const navigation = [
   { name: 'Assistant', href: '/chat', icon: '🤖' },
   { name: 'Notes', href: '/notes', icon: '📝' },
   { name: 'Meetings', href: '/meetings', icon: '🎯' },
+  { name: 'Multi-Track', href: '/multitrack', icon: '🎵' },
   { name: 'Dashboard', href: '/', icon: '📊' },
   { name: 'Settings', href: '/settings', icon: '⚙️' },
 ];

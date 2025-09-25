@@ -10,7 +10,8 @@
     "build:electron": "electron-builder --publish=never",
     "dist": "npm run build",
     "pack": "electron-builder --dir",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps && electron-rebuild",
+    "rebuild": "electron-rebuild"
   },
   "keywords": [
     "nexus",
@@ -20,10 +21,15 @@
   ],
   "author": "Project Nexus Team",
   "license": "MIT",
+  "dependencies": {
+    "node-record-lpcm16": "^1.0.1",
+    "speaker": "^0.5.4"
+  },
   "devDependencies": {
     "cross-env": "^7.0.3",
     "electron": "^27.0.0",
-    "electron-builder": "^24.6.4"
+    "electron-builder": "^24.6.4",
+    "electron-rebuild": "^3.2.9"
   },
   "engines": {
     "node": ">=18.0.0"

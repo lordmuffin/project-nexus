@@ -120,7 +120,7 @@ All services communicate via `nexus-network` bridge with:
 
 ### Known Issues & Considerations
 - Web app has merge conflicts in `App.js` and `package.json` (theme provider integration)
-- Mobile app uses separate repository structure (`nexus-companion` volume mount)
+- Mobile app now integrated into monorepo at `apps/mobile/` (formerly separate repository)
 - CORS configuration allows broad origins for mobile development
 - GPU support available but commented out in Docker configs
 - Workspace configuration excludes backend from pnpm workspace (separate package.json)

@@ -9,6 +9,7 @@ import Chat from './features/chat/Chat';
 import Notes from './features/notes/Notes';
 import Meetings from './features/meetings/Meetings';
 import Settings from './features/settings/Settings';
+import MultiTrackRecorder from './features/multitrack/MultiTrackRecorder';
 import './App.css';
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
                   <Route path="/chat" element={<Chat />} />
                   <Route path="/notes" element={<Notes />} />
                   <Route path="/meetings" element={<Meetings />} />
+                  <Route path="/multitrack" element={<MultiTrackRecorder />} />
                   <Route path="/settings" element={<Settings />} />
                 </Routes>
               </main>

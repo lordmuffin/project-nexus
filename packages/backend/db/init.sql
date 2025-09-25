@@ -74,6 +74,28 @@ CREATE TABLE IF NOT EXISTS system_status (
     metadata JSONB DEFAULT '{}'
 );
 
+-- AI Processes table for tracking AI operations (transcription, analysis, etc.)
+CREATE TABLE IF NOT EXISTS ai_processes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    meeting_id UUID REFERENCES meetings(id) ON DELETE CASCADE,
+    process_type VARCHAR(50) NOT NULL CHECK (process_type IN ('transcription', 'analysis', 'chat', 'auto-summary')),
+    status VARCHAR(20) NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'running', 'completed', 'failed', 'cancelled')),
+    progress INTEGER NOT NULL DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
+    phase VARCHAR(100),
+    message TEXT,
+    start_time TIMESTAMP,
+    end_time TIMESTAMP,
+    elapsed_time INTEGER DEFAULT 0,
+    estimated_time_remaining INTEGER,
+    resource_usage JSONB DEFAULT '{"cpu": 0, "memory": 0}',
+    logs JSONB DEFAULT '[]',
+    error_details JSONB,
+    result JSONB,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id ON chat_messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_created_at ON chat_messages(created_at);
@@ -83,6 +105,10 @@ CREATE INDEX IF NOT EXISTS idx_device_pairs_device_id ON device_pairs(device_id)
 CREATE INDEX IF NOT EXISTS idx_device_pairs_active ON device_pairs(is_active);
 CREATE INDEX IF NOT EXISTS idx_meeting_recordings_user_id ON meeting_recordings(user_id);
 CREATE INDEX IF NOT EXISTS idx_system_status_service ON system_status(service_name);
+CREATE INDEX IF NOT EXISTS idx_ai_processes_meeting_id ON ai_processes(meeting_id);
+CREATE INDEX IF NOT EXISTS idx_ai_processes_status ON ai_processes(status);
+CREATE INDEX IF NOT EXISTS idx_ai_processes_type ON ai_processes(process_type);
+CREATE INDEX IF NOT EXISTS idx_ai_processes_created_at ON ai_processes(created_at DESC);
 
 -- Insert default user for demo purposes
 INSERT INTO users (id, username, email) 

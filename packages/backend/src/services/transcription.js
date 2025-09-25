@@ -158,7 +158,7 @@ class TranscriptionService {
         if (job.result?.text && job.result.text.trim().length > 10) {
           try {
             // For now, use a quick rule-based approach to demonstrate the functionality
-            await this.generateQuickSummary(transcriptionId, job.result.text);
+            await this.generateAISummary(transcriptionId, job.result.text);
           } catch (error) {
             console.error('Failed to generate summary:', error);
           }

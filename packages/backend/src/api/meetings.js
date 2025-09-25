@@ -5,6 +5,7 @@ const router = express.Router();
 const meetingsService = require('../services/meetings');
 const transcriptionService = require('../services/transcription');
 const ollamaService = require('../services/ollama');
+const aiProcessManager = require('../services/aiProcessManager');
 
 // Configure multer for file uploads
 const upload = multer({
@@ -394,9 +395,12 @@ router.get('/:id/transcription', async (req, res) => {
 
 // Analyze meeting transcript with AI
 router.post('/:id/analyze', async (req, res) => {
+  let processId = null;
+  const startTime = Date.now();
+  
   try {
     const { id } = req.params;
-    const { transcript } = req.body;
+    const { transcript, style = 'standard' } = req.body;
     
     if (!transcript || transcript.trim().length === 0) {
       return res.status(400).json({
@@ -405,25 +409,109 @@ router.post('/:id/analyze', async (req, res) => {
       });
     }
     
-    // Generate AI summary and action items
+    // Estimate total time based on transcript length
+    const transcriptLength = transcript.length;
+    const baseTimeSeconds = 30;
+    const timePerCharacter = 0.1;
+    const totalEstimatedTime = Math.max(baseTimeSeconds, Math.min(300, baseTimeSeconds + (transcriptLength * timePerCharacter)));
+    
+    // Create AI process
+    processId = aiProcessManager.createProcess(id, 'analysis', {
+      style,
+      transcriptLength,
+      estimatedTime: totalEstimatedTime
+    });
+    
+    console.log(`Starting AI analysis for meeting ${id} with style: ${style} (Process: ${processId})...`);
+    
+    // Start the process
+    aiProcessManager.startProcess(processId);
+    
+    // Emit process started event
+    req.app.get('io').emit('process:started', {
+      processId,
+      meetingId: id,
+      process: aiProcessManager.getProcess(processId)
+    });
+    
+    // Phase 1: Preparing analysis (0-25%)
+    aiProcessManager.addLog(processId, 'info', `Starting analysis for meeting ${id} with style: ${style}`);
+    aiProcessManager.addLog(processId, 'info', `Transcript length: ${transcriptLength} characters`);
+    aiProcessManager.addLog(processId, 'info', `Estimated processing time: ${totalEstimatedTime} seconds`);
+    
+    aiProcessManager.updateProgress(processId, 10, 'preparing', 'Preparing analysis...', Math.round(totalEstimatedTime * 0.9));
+    
+    // Emit process progress event  
+    req.app.get('io').emit('process:progress', {
+      processId,
+      meetingId: id,
+      process: aiProcessManager.getProcess(processId)
+    });
+    
+    req.app.get('io').emit('meeting:analysis_progress', {
+      meetingId: id,
+      phase: 'preparing',
+      message: 'Preparing analysis...',
+      progress: 10,
+      estimatedTimeRemaining: Math.round(totalEstimatedTime * 0.9)
+    });
+    
+    // Generate different prompts based on style
+    let styleInstructions = '';
+    switch (style) {
+      case 'detailed':
+        styleInstructions = 'Provide a comprehensive, detailed analysis with thorough explanations. Include more key points and elaborate on decisions.';
+        break;
+      case 'brief':
+        styleInstructions = 'Keep the summary very concise and focus only on the most important points. Limit key points to 3-5 items.';
+        break;
+      case 'action-focused':
+        styleInstructions = 'Focus heavily on action items and decisions. The summary should emphasize what needs to be done and what was decided.';
+        break;
+      default:
+        styleInstructions = 'Provide a balanced analysis with clear, concise information.';
+    }
+    
+    // Generate AI summary and action items with improved prompt
     const analysisPrompt = `
-Please analyze the following meeting transcript and provide:
-1. A concise summary (2-3 sentences)
-2. Key discussion points (bullet points)
-3. Action items with responsible parties if mentioned
-4. Important decisions made
+You are analyzing a meeting transcript. Please provide a structured analysis in valid JSON format.
+
+STYLE: ${styleInstructions}
+
+IMPORTANT: Respond ONLY with valid JSON. No additional text before or after.
 
 Transcript:
 ${transcript}
 
-Please format your response as JSON with the following structure:
+Analyze and return this exact JSON structure:
 {
-  "summary": "Brief summary here",
-  "keyPoints": ["point 1", "point 2", ...],
-  "actionItems": ["action 1", "action 2", ...],
-  "decisions": ["decision 1", "decision 2", ...]
+  "summary": "Write a clear summary based on the requested style",
+  "keyPoints": ["List", "key", "discussion", "points", "as", "separate", "strings"],
+  "actionItems": ["List", "specific", "action", "items", "mentioned"],
+  "decisions": ["List", "important", "decisions", "made"]
 }
 `;
+
+    // Phase 2: Analyzing transcript (25-60%)
+    aiProcessManager.addLog(processId, 'info', `Generated analysis prompt for ${style} style`);
+    aiProcessManager.addLog(processId, 'info', 'Sending request to AI service (Ollama)...');
+    
+    aiProcessManager.updateProgress(processId, 35, 'analyzing', 'Analyzing transcript with AI...', Math.round(totalEstimatedTime * 0.6));
+    
+    // Emit process progress event
+    req.app.get('io').emit('process:progress', {
+      processId,
+      meetingId: id,
+      process: aiProcessManager.getProcess(processId)
+    });
+    
+    req.app.get('io').emit('meeting:analysis_progress', {
+      meetingId: id,
+      phase: 'analyzing',
+      message: 'Analyzing transcript with AI...',
+      progress: 35,
+      estimatedTimeRemaining: Math.round(totalEstimatedTime * 0.6)
+    });
 
     const aiResponse = await ollamaService.generateCompletion({
       prompt: analysisPrompt,
@@ -431,44 +519,170 @@ Please format your response as JSON with the following structure:
       maxTokens: 1000
     });
     
+    aiProcessManager.addLog(processId, 'info', `Received AI response (${aiResponse.length} characters)`);
+    
+    // Phase 3: Extracting insights (60-85%)
+    aiProcessManager.addLog(processId, 'info', 'Parsing AI response and extracting insights...');
+    
+    aiProcessManager.updateProgress(processId, 70, 'extracting', 'Extracting key insights...', Math.round(totalEstimatedTime * 0.3));
+    
+    // Emit process progress event
+    req.app.get('io').emit('process:progress', {
+      processId,
+      meetingId: id,
+      process: aiProcessManager.getProcess(processId)
+    });
+    
+    req.app.get('io').emit('meeting:analysis_progress', {
+      meetingId: id,
+      phase: 'extracting',
+      message: 'Extracting key insights...',
+      progress: 70,
+      estimatedTimeRemaining: Math.round(totalEstimatedTime * 0.3)
+    });
+    
     let analysis;
+    let parseError = null;
+    
     try {
-      // Try to parse JSON response
-      analysis = JSON.parse(aiResponse.trim());
-    } catch (parseError) {
-      // If JSON parsing fails, create a structured response from the text
+      // Clean up the response and try to parse JSON
+      aiProcessManager.addLog(processId, 'info', 'Attempting to parse JSON response from AI...');
+      const cleanedResponse = aiResponse.trim()
+        .replace(/^```json\s*/i, '')
+        .replace(/\s*```$/i, '')
+        .replace(/^[^{]*({.*})[^}]*$/s, '$1');
+      
+      analysis = JSON.parse(cleanedResponse);
+      aiProcessManager.addLog(processId, 'info', 'Successfully parsed JSON response');
+      
+      // Validate the structure
+      if (!analysis.summary) analysis.summary = 'Summary not available';
+      if (!Array.isArray(analysis.keyPoints)) analysis.keyPoints = [];
+      if (!Array.isArray(analysis.actionItems)) analysis.actionItems = [];
+      if (!Array.isArray(analysis.decisions)) analysis.decisions = [];
+      
+      aiProcessManager.addLog(processId, 'info', `Extracted ${analysis.keyPoints.length} key points, ${analysis.actionItems.length} action items, ${analysis.decisions.length} decisions`);
+      
+    } catch (error) {
+      parseError = error.message;
+      aiProcessManager.addLog(processId, 'warn', `JSON parsing failed: ${error.message}. Using fallback parsing...`);
+      console.warn('JSON parsing failed, creating fallback analysis:', error.message);
+      
+      // Extract information from raw text using simple patterns
+      const lines = aiResponse.split('\n').filter(line => line.trim());
+      const summary = lines.find(line => line.toLowerCase().includes('summary') || line.length > 50)?.trim() || 
+                     transcript.substring(0, 200) + '...';
+      
       analysis = {
-        summary: aiResponse.substring(0, 200) + '...',
-        keyPoints: [],
-        actionItems: [],
-        decisions: []
+        summary,
+        keyPoints: lines.filter(line => 
+          line.includes('•') || line.includes('-') || line.includes('*')
+        ).map(line => line.replace(/^[•\-*\s]+/, '').trim()).slice(0, 5),
+        actionItems: lines.filter(line => 
+          line.toLowerCase().includes('action') || 
+          line.toLowerCase().includes('todo') ||
+          line.toLowerCase().includes('follow up')
+        ).map(line => line.trim()).slice(0, 3),
+        decisions: lines.filter(line => 
+          line.toLowerCase().includes('decision') || 
+          line.toLowerCase().includes('decided') ||
+          line.toLowerCase().includes('agreed')
+        ).map(line => line.trim()).slice(0, 3)
       };
+      
+      aiProcessManager.addLog(processId, 'info', `Fallback parsing extracted ${analysis.keyPoints.length} key points, ${analysis.actionItems.length} action items, ${analysis.decisions.length} decisions`);
     }
+    
+    const processingTime = ((Date.now() - startTime) / 1000).toFixed(1);
+    
+    // Phase 4: Finalizing summary (85-100%)
+    aiProcessManager.addLog(processId, 'info', `Saving analysis results to database (processing time: ${processingTime}s)`);
+    
+    aiProcessManager.updateProgress(processId, 90, 'finalizing', 'Finalizing summary...', Math.round(totalEstimatedTime * 0.1));
+    
+    // Emit process progress event
+    req.app.get('io').emit('process:progress', {
+      processId,
+      meetingId: id,
+      process: aiProcessManager.getProcess(processId)
+    });
+    
+    req.app.get('io').emit('meeting:analysis_progress', {
+      meetingId: id,
+      phase: 'finalizing',
+      message: 'Finalizing summary...',
+      progress: 90,
+      estimatedTimeRemaining: Math.round(totalEstimatedTime * 0.1)
+    });
+    
+    // Ensure we're saving clean text, not JSON strings
+    const cleanSummary = typeof analysis.summary === 'string' ? analysis.summary : JSON.stringify(analysis.summary);
     
     // Save analysis to meeting record
     await meetingsService.updateMeeting(id, {
-      summary: analysis.summary,
+      summary: cleanSummary,
       actionItems: analysis.actionItems || [],
       keyPoints: analysis.keyPoints || [],
       decisions: analysis.decisions || [],
       analyzedAt: new Date()
     });
     
+    aiProcessManager.addLog(processId, 'info', 'Analysis results saved to database successfully');
+    console.log(`AI analysis completed for meeting ${id} in ${processingTime}s`);
+    
+    // Complete the process
+    aiProcessManager.completeProcess(processId, {
+      summary: analysis.summary,
+      keyPoints: analysis.keyPoints,
+      actionItems: analysis.actionItems,
+      decisions: analysis.decisions,
+      processingTime: parseFloat(processingTime),
+      parseError
+    });
+    
     // Emit to connected clients
     req.app.get('io').emit('meeting:analysis_complete', {
       meetingId: id,
-      analysis
+      analysis,
+      processingTime: parseFloat(processingTime),
+      parseError,
+      processId
     });
     
     res.json({
       success: true,
-      data: analysis
+      data: {
+        ...analysis,
+        processingTime: parseFloat(processingTime),
+        parseError
+      }
     });
   } catch (error) {
-    console.error('Error analyzing meeting:', error);
+    const processingTime = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.error(`Error analyzing meeting ${req.params.id}:`, error);
+    
+    // Fail the process if it was created
+    if (processId) {
+      aiProcessManager.failProcess(processId, {
+        error: error.message,
+        processingTime: parseFloat(processingTime)
+      });
+      
+      // Emit process failure event
+      req.app.get('io').emit('process:failed', {
+        processId,
+        meetingId: req.params.id,
+        error: error.message,
+        process: aiProcessManager.getProcess(processId)
+      });
+    }
+    
     res.status(500).json({
       success: false,
-      error: 'Failed to analyze meeting transcript'
+      error: error.message.includes('Ollama') ? 
+        'AI service unavailable. Please ensure Ollama is running.' : 
+        'Failed to analyze meeting transcript',
+      processingTime: parseFloat(processingTime)
     });
   }
 });

@@ -13,6 +13,7 @@ const transcriptionRoutes = require('./api/transcription');
 const healthRoutes = require('./api/health');
 const notesRoutes = require('./api/notes');
 const pairingRoutes = require('./api/pairing');
+const processesRoutes = require('./api/processes');
 
 // Import services
 const dbService = require('./services/database');
@@ -84,6 +85,7 @@ app.use('/api/meetings', meetingsRoutes);
 app.use('/api/transcription', transcriptionRoutes);
 app.use('/api/notes', notesRoutes);
 app.use('/api/pairing', pairingRoutes);
+app.use('/api/processes', processesRoutes);
 
 // WebSocket setup
 wsService.initialize(io);

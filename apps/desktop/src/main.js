@@ -1,8 +1,12 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, systemPreferences } = require('electron');
 const path = require('path');
 const isDev = process.env.NODE_ENV === 'development';
 
+// Import audio capture service
+const MultiTrackAudioCapture = require('./services/audioCapture');
+
 let mainWindow;
+let audioCapture;
 
 function createWindow() {
   // Create the browser window
@@ -15,7 +19,8 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       enableRemoteModule: false,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
+      webSecurity: false // Required for audio capture
     },
     icon: path.join(__dirname, '../assets/icon.png'),
     show: false
@@ -139,10 +144,32 @@ function createMenu() {
   Menu.setApplicationMenu(menu);
 }
 
+// Initialize audio capture service
+async function initializeAudioCapture() {
+  try {
+    audioCapture = new MultiTrackAudioCapture();
+    
+    // Request microphone permission
+    const micPermission = await systemPreferences.askForMediaAccess('microphone');
+    console.log('Microphone permission:', micPermission);
+    
+    // On macOS, request screen capture permission for system audio
+    if (process.platform === 'darwin') {
+      const screenPermission = await systemPreferences.askForMediaAccess('screen');
+      console.log('Screen capture permission:', screenPermission);
+    }
+    
+    console.log('Audio capture service initialized');
+  } catch (error) {
+    console.error('Error initializing audio capture:', error);
+  }
+}
+
 // App event listeners
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   createWindow();
   createMenu();
+  await initializeAudioCapture();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -154,6 +181,13 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
+  }
+});
+
+app.on('before-quit', () => {
+  // Cleanup audio capture service
+  if (audioCapture) {
+    audioCapture.cleanup();
   }
 });
 
