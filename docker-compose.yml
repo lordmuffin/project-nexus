@@ -1,22 +1,6 @@
 services:
   # Frontend React application
-  frontend:
-    image: node:18-alpine
-    working_dir: /app
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=development
-      - REACT_APP_BACKEND_URL=http://localhost:3001
-      - REACT_APP_WS_URL=ws://localhost:3001
-      - PORT=3000
-      - CHOKIDAR_USEPOLLING=true
-      - WATCHPACK_POLLING=true
-      - DISABLE_ESLINT_PLUGIN=true
-      - GENERATE_SOURCEMAP=false
-      - CI=true
-      - SKIP_PREFLIGHT_CHECK=true
-      - BABEL_CACHE_PATH=/tmp/.babel-cache
+2
       - ESLINT_NO_DEV_ERRORS=true
       - NODE_OPTIONS=--openssl-legacy-provider
     volumes:
