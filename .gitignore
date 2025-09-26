@@ -163,3 +163,4 @@ models/
 
 # Turbo
 .turbo
+apps/nexus_app/.flutter-plugins-dependencies
