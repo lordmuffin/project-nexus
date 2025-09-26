@@ -47,17 +47,29 @@ try {
     Write-Step "1. Checking environment..."
 
     # Set proper Java environment for Android builds
-    $AndroidStudioJdk = "$env:LOCALAPPDATA\Android\Android Studio\jbr"
-    if (-not (Test-Path $AndroidStudioJdk)) {
-        # Try alternative paths
-        $AndroidStudioJdk = "${env:ProgramFiles}\Android\Android Studio\jbr"
-        if (-not (Test-Path $AndroidStudioJdk)) {
-            $AndroidStudioJdk = "${env:ProgramFiles(x86)}\Android\Android Studio\jbr"
-            if (-not (Test-Path $AndroidStudioJdk)) {
-                Write-Warning "Android Studio JDK not found in standard locations"
-                Write-Host "Please set JAVA_HOME manually to your Android Studio JDK path"
+    $PossibleJdkPaths = @(
+        "$env:LOCALAPPDATA\Android\Android Studio\jbr",
+        "${env:ProgramFiles}\Android\Android Studio\jbr",
+        "${env:ProgramFiles(x86)}\Android\Android Studio\jbr",
+        "${env:ProgramFiles}\Android\Android Studio1\jbr",  # Handle numbered installations
+        "${env:ProgramFiles(x86)}\Android\Android Studio1\jbr"
+    )
+    
+    $AndroidStudioJdk = $null
+    foreach ($path in $PossibleJdkPaths) {
+        if (Test-Path $path) {
+            $javaExe = Join-Path $path "bin\java.exe"
+            if (Test-Path $javaExe) {
+                $AndroidStudioJdk = $path
+                break
             }
         }
+    }
+    
+    if (-not $AndroidStudioJdk) {
+        Write-Warning "Android Studio JDK not found in standard locations"
+        Write-Host "Run .\fix-java-path.ps1 to resolve Java path issues"
+        Write-Host "Or set JAVA_HOME manually to your Android Studio JDK path"
     }
 
     if (Test-Path $AndroidStudioJdk) {
