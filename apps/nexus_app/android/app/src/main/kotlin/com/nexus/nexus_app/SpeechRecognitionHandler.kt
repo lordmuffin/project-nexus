@@ -225,4 +225,9 @@ class SpeechRecognitionHandler(
             ))
         }
     }
+    
+    override fun onEvent(eventType: Int, params: Bundle?) {
+        // Handle speech recognition events
+        Log.d(TAG, "Speech recognition event: $eventType")
+    }
 }
