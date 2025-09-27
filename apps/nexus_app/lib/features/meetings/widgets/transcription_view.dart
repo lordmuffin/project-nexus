@@ -13,10 +13,10 @@ class TranscriptionView extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<TranscriptionView> createState() => _TranscriptionViewState();
+  ConsumerState<TranscriptionView> createState() => TranscriptionViewState();
 }
 
-class _TranscriptionViewState extends ConsumerState<TranscriptionView> {
+class TranscriptionViewState extends ConsumerState<TranscriptionView> {
   final List<TranscriptionSegment> _transcriptionSegments = [];
   final ScrollController _scrollController = ScrollController();
   String _currentPartialText = '';

@@ -143,7 +143,7 @@ class MeetingRepository {
     if (filters != null) {
       // Date range filter
       if (filters.startDate != null) {
-        query = query.where((m) => m.startTime.isAfterValue(filters.startDate!));
+        query = query.where((m) => m.startTime.isAfter(filters.startDate!));
       }
       if (filters.endDate != null) {
         final endOfDay = DateTime(
@@ -154,15 +154,15 @@ class MeetingRepository {
           59,
           59,
         );
-        query = query.where((m) => m.startTime.isBeforeValue(endOfDay));
+        query = query.where((m) => m.startTime.isBefore(endOfDay));
       }
 
       // Duration filter
       if (filters.minDuration != null) {
-        query = query.where((m) => m.duration.isBiggerOrEqualValue(filters.minDuration!));
+        query = query.where((m) => m.duration.isBiggerOrEqual(filters.minDuration!));
       }
       if (filters.maxDuration != null) {
-        query = query.where((m) => m.duration.isSmallerOrEqualValue(filters.maxDuration!));
+        query = query.where((m) => m.duration.isSmallerOrEqual(filters.maxDuration!));
       }
 
       // Content filters
@@ -236,7 +236,7 @@ class MeetingRepository {
     // Apply filters (same logic as watchMeetingsWithFilters)
     if (filters != null) {
       if (filters.startDate != null) {
-        query = query.where((m) => m.startTime.isAfterValue(filters.startDate!));
+        query = query.where((m) => m.startTime.isAfter(filters.startDate!));
       }
       if (filters.endDate != null) {
         final endOfDay = DateTime(
@@ -247,14 +247,14 @@ class MeetingRepository {
           59,
           59,
         );
-        query = query.where((m) => m.startTime.isBeforeValue(endOfDay));
+        query = query.where((m) => m.startTime.isBefore(endOfDay));
       }
 
       if (filters.minDuration != null) {
-        query = query.where((m) => m.duration.isBiggerOrEqualValue(filters.minDuration!));
+        query = query.where((m) => m.duration.isBiggerOrEqual(filters.minDuration!));
       }
       if (filters.maxDuration != null) {
-        query = query.where((m) => m.duration.isSmallerOrEqualValue(filters.maxDuration!));
+        query = query.where((m) => m.duration.isSmallerOrEqual(filters.maxDuration!));
       }
 
       if (filters.hasTranscript == true) {

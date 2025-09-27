@@ -148,9 +148,12 @@ class ChatRepository {
   
   // Utility methods
   Future<int> getMessageCount(int conversationId) async {
-    return await (_db.chatMessages.count()
-      ..where((t) => t.conversationId.equals(conversationId)))
-      .getSingle();
+    final query = _db.selectOnly(_db.chatMessages)
+      ..addColumns([_db.chatMessages.id.count()])
+      ..where(_db.chatMessages.conversationId.equals(conversationId));
+    
+    final result = await query.getSingle();
+    return result.read(_db.chatMessages.id.count()) ?? 0;
   }
   
   Future<int> getTotalMessageCount() async {

@@ -120,7 +120,9 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
   
   void _skipSeconds(int seconds) {
     final newPosition = _position + Duration(seconds: seconds);
-    final clampedPosition = newPosition.clamp(Duration.zero, _duration);
+    final clampedPosition = Duration(
+      milliseconds: newPosition.inMilliseconds.clamp(0, _duration.inMilliseconds)
+    );
     _player.seek(clampedPosition);
   }
   

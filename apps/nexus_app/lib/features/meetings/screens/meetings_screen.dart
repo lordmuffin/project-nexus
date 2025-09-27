@@ -6,6 +6,7 @@ import '../../../shared/widgets/components.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/database/database.dart';
 import '../../../core/providers/database_provider.dart';
+import '../../../core/repositories/meeting_repository.dart';
 import '../../../core/utils/mock_data_generator.dart';
 import '../widgets/meeting_search_bar.dart';
 import '../widgets/meeting_filter_dialog.dart';

@@ -102,6 +102,7 @@ class NexusTextField extends StatelessWidget {
   final String? hint;
   final String? helperText;
   final TextEditingController? controller;
+  final FocusNode? focusNode;
   final String? Function(String?)? validator;
   final bool obscureText;
   final TextInputType? keyboardType;
@@ -113,6 +114,7 @@ class NexusTextField extends StatelessWidget {
   final bool readOnly;
   final VoidCallback? onTap;
   final Function(String)? onChanged;
+  final Function(String)? onSubmitted;
   
   const NexusTextField({
     super.key,
@@ -120,6 +122,7 @@ class NexusTextField extends StatelessWidget {
     this.hint,
     this.helperText,
     this.controller,
+    this.focusNode,
     this.validator,
     this.obscureText = false,
     this.keyboardType,
@@ -131,12 +134,14 @@ class NexusTextField extends StatelessWidget {
     this.readOnly = false,
     this.onTap,
     this.onChanged,
+    this.onSubmitted,
   });
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
+      focusNode: focusNode,
       validator: validator,
       obscureText: obscureText,
       keyboardType: keyboardType,
@@ -146,6 +151,7 @@ class NexusTextField extends StatelessWidget {
       readOnly: readOnly,
       onTap: onTap,
       onChanged: onChanged,
+      onFieldSubmitted: onSubmitted,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
