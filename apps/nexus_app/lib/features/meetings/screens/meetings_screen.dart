@@ -58,8 +58,22 @@ class _MeetingsScreenState extends ConsumerState<MeetingsScreen> {
           );
           _hasGeneratedMockData = true;
           debugPrint('✅ Mock data generated successfully!');
+          
+          // Force UI refresh after data generation
+          if (mounted) {
+            setState(() {});
+          }
         } catch (e) {
           debugPrint('❌ Error generating mock data: $e');
+          // Show error to user
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to generate sample data: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
         
         setState(() {
@@ -70,6 +84,14 @@ class _MeetingsScreenState extends ConsumerState<MeetingsScreen> {
       }
     } catch (e) {
       debugPrint('💥 Error in _initializeData: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error initializing data: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 

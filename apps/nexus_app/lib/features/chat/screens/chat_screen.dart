@@ -29,13 +29,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _loadWelcomeMessage() {
-    _messages.add(
-      ChatMessage(
-        content: 'Hello! I\'m your AI assistant. How can I help you today?',
-        isUser: false,
-        timestamp: DateTime.now(),
-      ),
-    );
+    setState(() {
+      _messages.add(
+        ChatMessage(
+          content: 'Hello! I\'m your AI assistant. How can I help you today?',
+          isUser: false,
+          timestamp: DateTime.now(),
+        ),
+      );
+    });
+    print('💬 Welcome message loaded. Total messages: ${_messages.length}');
   }
 
   void _sendMessage() {
