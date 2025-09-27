@@ -4,19 +4,26 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app_colors.dart';
 import '../constants/storage_keys.dart';
 
-final themeProvider = Provider((ref) => ThemeMode.system);
+// Simple provider that can be updated via external methods
+final themeProvider = Provider<ThemeMode>((ref) => ThemeNotifier.currentTheme);
 
 class ThemeNotifier {
-  static Future<void> loadTheme(WidgetRef ref) async {
+  static ThemeMode _currentTheme = ThemeMode.system;
+  
+  static ThemeMode get currentTheme => _currentTheme;
+
+  static Future<void> loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
     final themeIndex = prefs.getInt(StorageKeys.themeMode) ?? ThemeMode.system.index;
-    ref.read(themeProvider.notifier).state = ThemeMode.values[themeIndex];
+    _currentTheme = ThemeMode.values[themeIndex];
   }
   
   static Future<void> setTheme(WidgetRef ref, ThemeMode mode) async {
-    ref.read(themeProvider.notifier).state = mode;
+    _currentTheme = mode;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(StorageKeys.themeMode, mode.index);
+    // Force rebuild by invalidating the provider
+    ref.invalidate(themeProvider);
   }
 }
 

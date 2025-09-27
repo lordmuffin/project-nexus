@@ -304,8 +304,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 trailing: ref.watch(themeProvider) == mode
                     ? const Icon(Icons.check, color: AppColors.success)
                     : null,
-                onTap: () {
-                  ref.read(themeProvider.notifier).setTheme(mode);
+                onTap: () async {
+                  await ThemeNotifier.setTheme(ref, mode);
                   Navigator.pop(context);
                 },
               );

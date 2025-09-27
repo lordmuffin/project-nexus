@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../shared/widgets/components.dart';
 
 class MeetingSearchBar extends ConsumerStatefulWidget {
@@ -85,9 +86,41 @@ class _MeetingSearchBarState extends ConsumerState<MeetingSearchBar> {
 }
 
 // Search state management
-final meetingSearchQueryProvider = Provider((ref) => '');
+final meetingSearchQueryProvider = Provider<String>((ref) => SearchQueryNotifier.currentQuery);
 
-final meetingSearchFiltersProvider = Provider((ref) => MeetingSearchFilters());
+final meetingSearchFiltersProvider = Provider<MeetingSearchFilters>((ref) => SearchFiltersNotifier.currentFilters);
+
+class SearchQueryNotifier {
+  static String _query = '';
+  
+  static String get currentQuery => _query;
+  
+  static void setQuery(WidgetRef ref, String query) {
+    _query = query;
+    ref.invalidate(meetingSearchQueryProvider);
+  }
+  
+  static void clear(WidgetRef ref) {
+    _query = '';
+    ref.invalidate(meetingSearchQueryProvider);
+  }
+}
+
+class SearchFiltersNotifier {
+  static MeetingSearchFilters _filters = MeetingSearchFilters();
+  
+  static MeetingSearchFilters get currentFilters => _filters;
+  
+  static void setFilters(WidgetRef ref, MeetingSearchFilters filters) {
+    _filters = filters;
+    ref.invalidate(meetingSearchFiltersProvider);
+  }
+  
+  static void clear(WidgetRef ref) {
+    _filters = MeetingSearchFilters();
+    ref.invalidate(meetingSearchFiltersProvider);
+  }
+}
 
 class MeetingSearchFilters {
   final DateTime? startDate;

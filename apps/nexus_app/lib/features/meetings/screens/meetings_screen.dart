@@ -108,7 +108,7 @@ class _MeetingsScreenState extends ConsumerState<MeetingsScreen> {
     });
     if (!_isSearching) {
       // Clear search when closing
-      ref.read(meetingSearchQueryProvider.notifier).state = '';
+      SearchQueryNotifier.clear(ref);
     }
   }
 
@@ -124,7 +124,7 @@ class _MeetingsScreenState extends ConsumerState<MeetingsScreen> {
     );
 
     if (newFilters != null) {
-      ref.read(meetingSearchFiltersProvider.notifier).state = newFilters;
+      SearchFiltersNotifier.setFilters(ref, newFilters);
     }
   }
 
@@ -328,7 +328,7 @@ class _MeetingsScreenState extends ConsumerState<MeetingsScreen> {
                 if (_isSearching)
                   MeetingSearchBar(
                     onSearchChanged: (query) {
-                      ref.read(meetingSearchQueryProvider.notifier).state = query;
+                      SearchQueryNotifier.setQuery(ref, query);
                     },
                     onFilterPressed: _showFilterDialog,
                     initialQuery: searchQuery,
@@ -356,7 +356,7 @@ class _MeetingsScreenState extends ConsumerState<MeetingsScreen> {
                         const Spacer(),
                         TextButton(
                           onPressed: () {
-                            ref.read(meetingSearchFiltersProvider.notifier).state = MeetingSearchFilters();
+                            SearchFiltersNotifier.clear(ref);
                           },
                           child: const Text('Clear'),
                         ),
@@ -395,8 +395,8 @@ class _MeetingsScreenState extends ConsumerState<MeetingsScreen> {
                             icon: Icons.search_off,
                             actionLabel: 'Clear Filters',
                             onAction: () {
-                              ref.read(meetingSearchQueryProvider.notifier).state = '';
-                              ref.read(meetingSearchFiltersProvider.notifier).state = MeetingSearchFilters();
+                              SearchQueryNotifier.clear(ref);
+                              SearchFiltersNotifier.clear(ref);
                             },
                           );
                         } else {
