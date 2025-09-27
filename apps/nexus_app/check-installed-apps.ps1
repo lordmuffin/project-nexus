@@ -7,12 +7,12 @@ param(
 Write-Host "🔍 Checking installed apps on device $DeviceId..." -ForegroundColor Cyan
 
 Write-Host "`n📱 Looking for Flutter/Nexus related apps:" -ForegroundColor Yellow
-adb -s $DeviceId shell pm list packages | grep -i flutter
-adb -s $DeviceId shell pm list packages | grep -i nexus
-adb -s $DeviceId shell pm list packages | grep -i example
+adb -s $DeviceId shell pm list packages | Select-String -Pattern "flutter" -CaseSensitive:$false
+adb -s $DeviceId shell pm list packages | Select-String -Pattern "nexus" -CaseSensitive:$false
+adb -s $DeviceId shell pm list packages | Select-String -Pattern "example" -CaseSensitive:$false
 
-Write-Host "`n🔍 Checking app details for com.nexus.nexus_app:" -ForegroundColor Yellow
-adb -s $DeviceId shell dumpsys package com.nexus.nexus_app | grep -E "(applicationLabel|versionName)"
+Write-Host "`n🔍 Checking if com.nexus.nexus_app is installed:" -ForegroundColor Yellow
+adb -s $DeviceId shell pm list packages | Select-String -Pattern "com.nexus.nexus_app"
 
 Write-Host "`n📋 All installed packages containing 'com.':" -ForegroundColor Yellow
-adb -s $DeviceId shell pm list packages | grep "com\." | sort
+adb -s $DeviceId shell pm list packages | Select-String -Pattern "com\." | Sort-Object
