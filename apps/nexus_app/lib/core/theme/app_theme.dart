@@ -4,9 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app_colors.dart';
 import '../constants/storage_keys.dart';
 
-final themeProvider = StateProvider<ThemeMode>((ref) {
-  return ThemeMode.system;
-});
+final themeProvider = Provider((ref) => ThemeMode.system);
 
 class ThemeNotifier {
   static Future<void> loadTheme(WidgetRef ref) async {

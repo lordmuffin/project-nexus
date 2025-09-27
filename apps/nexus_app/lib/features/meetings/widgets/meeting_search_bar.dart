@@ -85,11 +85,9 @@ class _MeetingSearchBarState extends ConsumerState<MeetingSearchBar> {
 }
 
 // Search state management
-final meetingSearchQueryProvider = StateProvider<String>((ref) => '');
+final meetingSearchQueryProvider = Provider((ref) => '');
 
-final meetingSearchFiltersProvider = StateProvider<MeetingSearchFilters>((ref) {
-  return MeetingSearchFilters();
-});
+final meetingSearchFiltersProvider = Provider((ref) => MeetingSearchFilters());
 
 class MeetingSearchFilters {
   final DateTime? startDate;
