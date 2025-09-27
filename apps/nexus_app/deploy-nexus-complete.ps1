@@ -30,7 +30,14 @@ Write-Host "✅ APK ready for deployment" -ForegroundColor Green
 # Step 2: Device Connection Check
 Write-Host "`n[STEP 2] 📱 Checking device connection..." -ForegroundColor Yellow
 $deviceList = adb devices
-if ($deviceList -notmatch $DeviceId) {
+$deviceFound = $false
+foreach ($line in $deviceList) {
+    if ($line -match "$DeviceId\s+device") {
+        $deviceFound = $true
+        break
+    }
+}
+if (-not $deviceFound) {
     Write-Host "❌ Device $DeviceId not found!" -ForegroundColor Red
     Write-Host "📋 Available devices:" -ForegroundColor Yellow
     adb devices
