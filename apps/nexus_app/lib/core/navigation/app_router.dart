@@ -10,6 +10,12 @@ import '../../features/settings/screens/settings_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../../shared/widgets/error_screen.dart';
 import '../providers/database_provider.dart';
+import '../database/database.dart';
+import '../repositories/meeting_repository.dart';
+import '../../features/meetings/widgets/tag_chip.dart';
+import '../../features/meetings/widgets/tag_selector.dart';
+import '../../features/meetings/services/meeting_export_service.dart';
+import '../../shared/widgets/components.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -98,27 +104,133 @@ extension GoRouterExtension on GoRouter {
   void goToNoteDetail(String id) => goNamed('note-detail', pathParameters: {'id': id});
 }
 
-// Placeholder screens for detail routes (will be implemented in later sprints)
-class MeetingDetailScreen extends ConsumerWidget {
+// Enhanced Meeting Detail Screen with inline editing
+class MeetingDetailScreen extends ConsumerStatefulWidget {
   final String meetingId;
   
   const MeetingDetailScreen({super.key, required this.meetingId});
   
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MeetingDetailScreen> createState() => _MeetingDetailScreenState();
+}
+
+class _MeetingDetailScreenState extends ConsumerState<MeetingDetailScreen> {
+  late TextEditingController _titleController;
+  bool _isEditingTitle = false;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _updateMeetingTitle(Meeting meeting, String newTitle) async {
+    if (newTitle.trim().isEmpty || newTitle == meeting.title) {
+      setState(() {
+        _isEditingTitle = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final meetingRepo = ref.read(meetingRepositoryProvider);
+      final updatedMeeting = meeting.copyWith(title: newTitle.trim());
+      await meetingRepo.updateMeeting(updatedMeeting);
+      
+      setState(() {
+        _isEditingTitle = false;
+        _isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Meeting title updated')),
+      );
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update title: $e')),
+      );
+    }
+  }
+
+  Future<void> _editTags(Meeting meeting) async {
+    final meetingRepo = ref.read(meetingRepositoryProvider);
+    final currentTags = meetingRepo.parseTags(meeting.tags);
+    final availableTags = await meetingRepo.getAllTags();
+
+    final newTags = await showTagSelectorDialog(
+      context,
+      initialTags: currentTags,
+      availableTags: availableTags,
+    );
+
+    if (newTags != null) {
+      try {
+        await meetingRepo.updateTags(meeting.id, newTags);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tags updated successfully')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update tags: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _exportMeeting(Meeting meeting) async {
+    final exportService = ref.read(meetingExportServiceProvider);
+    
+    try {
+      final options = await showExportDialog(context, singleMeeting: meeting);
+      if (options != null) {
+        await exportService.exportMeeting(
+          meeting,
+          format: options['format'],
+          includeTranscript: options['includeTranscript'],
+          includeSummary: options['includeSummary'],
+          includeActionItems: options['includeActionItems'],
+          includeMetadata: options['includeMetadata'],
+        );
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Meeting exported successfully')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Export failed: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final meetingRepo = ref.watch(meetingRepositoryProvider);
     
     return FutureBuilder(
-      future: meetingRepo.getMeetingById(int.parse(meetingId)),
+      future: meetingRepo.getMeetingById(int.parse(widget.meetingId)),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(
             appBar: AppBar(
               title: const Text('Loading...'),
             ),
-            body: const Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: const LoadingIndicator(message: 'Loading meeting...'),
           );
         }
         
@@ -128,39 +240,181 @@ class MeetingDetailScreen extends ConsumerWidget {
             appBar: AppBar(
               title: const Text('Meeting Not Found'),
             ),
-            body: const Center(
-              child: Text('Meeting not found'),
+            body: const ErrorDisplay(
+              message: 'Meeting not found',
+              icon: Icons.search_off,
             ),
           );
         }
         
+        // Set title controller if not editing
+        if (!_isEditingTitle && _titleController.text != meeting.title) {
+          _titleController.text = meeting.title;
+        }
+
+        final tags = meetingRepo.parseTags(meeting.tags);
+        
         return Scaffold(
           appBar: AppBar(
-            title: Text(meeting.title),
+            title: _isEditingTitle
+                ? TextField(
+                    controller: _titleController,
+                    autofocus: true,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      hintText: 'Meeting title',
+                    ),
+                    onSubmitted: (value) => _updateMeetingTitle(meeting, value),
+                  )
+                : GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _isEditingTitle = true;
+                      });
+                    },
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            meeting.title,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.edit,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ],
+                    ),
+                  ),
+            actions: [
+              if (_isEditingTitle) ...[
+                if (_isLoading)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                else ...[
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      setState(() {
+                        _isEditingTitle = false;
+                        _titleController.text = meeting.title;
+                      });
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.check),
+                    onPressed: () => _updateMeetingTitle(meeting, _titleController.text),
+                  ),
+                ],
+              ] else ...[
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'edit_tags':
+                        _editTags(meeting);
+                        break;
+                      case 'export':
+                        _exportMeeting(meeting);
+                        break;
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'edit_tags',
+                      child: ListTile(
+                        leading: Icon(Icons.local_offer),
+                        title: Text('Edit Tags'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'export',
+                      child: ListTile(
+                        leading: Icon(Icons.share),
+                        title: Text('Export'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
           ),
-          body: Padding(
+          body: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Meeting info
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Meeting Details',
-                          style: Theme.of(context).textTheme.titleMedium,
+                // Meeting metadata
+                NexusCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Meeting Details',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
                         ),
-                        const SizedBox(height: 8),
-                        Text('Duration: ${_formatDuration(meeting.duration)}'),
-                        Text('Date: ${meeting.startTime.toString().substring(0, 19)}'),
-                        if (meeting.endTime != null)
-                          Text('Ended: ${meeting.endTime!.toString().substring(0, 19)}'),
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      _buildDetailRow(
+                        context,
+                        icon: Icons.calendar_today,
+                        label: 'Date',
+                        value: _formatDateTime(meeting.startTime),
+                      ),
+                      
+                      if (meeting.endTime != null)
+                        _buildDetailRow(
+                          context,
+                          icon: Icons.schedule,
+                          label: 'Ended',
+                          value: _formatDateTime(meeting.endTime!),
+                        ),
+                      
+                      _buildDetailRow(
+                        context,
+                        icon: Icons.access_time,
+                        label: 'Duration',
+                        value: _formatDuration(meeting.duration),
+                      ),
+                      
+                      if (tags.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.local_offer,
+                              size: 16,
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TagList(
+                                tags: tags,
+                                onTagTapped: (tag) {
+                                  // TODO: Search for meetings with this tag
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
                 
@@ -168,71 +422,169 @@ class MeetingDetailScreen extends ConsumerWidget {
                 
                 // Audio player
                 if (meeting.audioPath != null && meeting.audioPath!.isNotEmpty)
-                  AudioPlayerWidget(audioPath: meeting.audioPath!),
+                  NexusCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Audio Recording',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        AudioPlayerWidget(audioPath: meeting.audioPath!),
+                      ],
+                    ),
+                  ),
                 
                 const SizedBox(height: 16),
                 
                 // Transcript
                 if (meeting.transcript != null && meeting.transcript!.isNotEmpty)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Transcript',
-                            style: Theme.of(context).textTheme.titleMedium,
+                  NexusCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.transcribe,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Transcript',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                            ),
                           ),
-                          const SizedBox(height: 8),
-                          Text(meeting.transcript!),
-                        ],
-                      ),
+                          child: Text(
+                            meeting.transcript!,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                
+                const SizedBox(height: 16),
                 
                 // Summary
                 if (meeting.summary != null && meeting.summary!.isNotEmpty)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Summary',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(meeting.summary!),
-                        ],
-                      ),
+                  NexusCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.summarize,
+                              color: Colors.orange,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Summary',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          meeting.summary!,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
                     ),
                   ),
                 
+                const SizedBox(height: 16),
+                
                 // Action items
                 if (meeting.actionItems != null && meeting.actionItems!.isNotEmpty)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Action Items',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(meeting.actionItems!),
-                        ],
-                      ),
+                  NexusCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.checklist,
+                              color: Colors.purple,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Action Items',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          meeting.actionItems!,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
                     ),
                   ),
+                
+                // Add some padding at the bottom
+                const SizedBox(height: 32),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildDetailRow(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            '$label: ',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+        ],
+      ),
     );
   }
   
@@ -246,8 +598,15 @@ class MeetingDetailScreen extends ConsumerWidget {
     
     if (hours > 0) {
       return '${hours}h ${minutes}m ${seconds}s';
+    } else if (minutes > 0) {
+      return '${minutes}m ${seconds}s';
+    } else {
+      return '${seconds}s';
     }
-    return '${minutes}m ${seconds}s';
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    return '${dateTime.day}/${dateTime.month}/${dateTime.year} at ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
 }
 
