@@ -32,32 +32,44 @@ class _MeetingsScreenState extends ConsumerState<MeetingsScreen> {
   }
 
   Future<void> _initializeData() async {
-    // Check if we have any data, if not generate mock data for demo
-    final meetingRepo = ref.read(meetingRepositoryProvider);
-    final count = await meetingRepo.getMeetingCount();
-    
-    if (count == 0 && !_hasGeneratedMockData) {
-      setState(() {
-        _isLoading = true;
-      });
+    try {
+      debugPrint('🔍 Initializing meetings data...');
       
-      final db = ref.read(databaseProvider);
-      final mockGenerator = MockDataGenerator(db);
+      // Check if we have any data, if not generate mock data for demo
+      final meetingRepo = ref.read(meetingRepositoryProvider);
+      final count = await meetingRepo.getMeetingCount();
       
-      try {
-        await mockGenerator.generateMockData(
-          meetingCount: 8,
-          noteCount: 12,
-          conversationCount: 3,
-        );
-        _hasGeneratedMockData = true;
-      } catch (e) {
-        debugPrint('Error generating mock data: $e');
+      debugPrint('📊 Current meeting count: $count');
+      
+      if (count == 0 && !_hasGeneratedMockData) {
+        debugPrint('🚀 Generating mock data...');
+        setState(() {
+          _isLoading = true;
+        });
+        
+        final db = ref.read(databaseProvider);
+        final mockGenerator = MockDataGenerator(db);
+        
+        try {
+          await mockGenerator.generateMockData(
+            meetingCount: 8,
+            noteCount: 12,
+            conversationCount: 3,
+          );
+          _hasGeneratedMockData = true;
+          debugPrint('✅ Mock data generated successfully!');
+        } catch (e) {
+          debugPrint('❌ Error generating mock data: $e');
+        }
+        
+        setState(() {
+          _isLoading = false;
+        });
+      } else {
+        debugPrint('✅ Data already exists or mock data already generated');
       }
-      
-      setState(() {
-        _isLoading = false;
-      });
+    } catch (e) {
+      debugPrint('💥 Error in _initializeData: $e');
     }
   }
 
