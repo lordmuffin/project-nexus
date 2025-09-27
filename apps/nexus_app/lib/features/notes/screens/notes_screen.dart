@@ -259,7 +259,7 @@ class NoteCard extends ConsumerWidget {
                     '#$tag',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: AppColors.secondaryGreen,
-                      fontWeight: FontWeight.medium,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 );
@@ -291,7 +291,7 @@ class NoteCard extends ConsumerWidget {
                         'Linked',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: AppColors.primaryBlue,
-                          fontWeight: FontWeight.medium,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],

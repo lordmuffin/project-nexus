@@ -244,7 +244,7 @@ class MeetingCard extends StatelessWidget {
                         'Transcript',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: AppColors.success,
-                          fontWeight: FontWeight.medium,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],

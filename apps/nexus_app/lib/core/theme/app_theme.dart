@@ -4,23 +4,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app_colors.dart';
 import '../constants/storage_keys.dart';
 
-final themeProvider = StateNotifierProvider<ThemeNotifier, ThemeMode>((ref) {
-  return ThemeNotifier();
+final themeProvider = StateProvider<ThemeMode>((ref) {
+  return ThemeMode.system;
 });
 
-class ThemeNotifier extends StateNotifier<ThemeMode> {
-  ThemeNotifier() : super(ThemeMode.system) {
-    _loadTheme();
-  }
-  
-  Future<void> _loadTheme() async {
+class ThemeNotifier {
+  static Future<void> loadTheme(WidgetRef ref) async {
     final prefs = await SharedPreferences.getInstance();
     final themeIndex = prefs.getInt(StorageKeys.themeMode) ?? ThemeMode.system.index;
-    state = ThemeMode.values[themeIndex];
+    ref.read(themeProvider.notifier).state = ThemeMode.values[themeIndex];
   }
   
-  Future<void> setTheme(ThemeMode mode) async {
-    state = mode;
+  static Future<void> setTheme(WidgetRef ref, ThemeMode mode) async {
+    ref.read(themeProvider.notifier).state = mode;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(StorageKeys.themeMode, mode.index);
   }
@@ -51,7 +47,7 @@ class AppTheme {
       ),
       
       // Card theme
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -151,7 +147,7 @@ class AppTheme {
       ),
       
       // Card theme
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),

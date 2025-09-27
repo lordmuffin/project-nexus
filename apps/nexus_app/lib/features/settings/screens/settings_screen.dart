@@ -76,7 +76,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       'Secure',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: AppColors.success,
-                        fontWeight: FontWeight.medium,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -101,7 +101,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       'Active',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: AppColors.primaryBlue,
-                        fontWeight: FontWeight.medium,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -176,7 +176,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       'Latest',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: AppColors.secondaryGreen,
-                        fontWeight: FontWeight.medium,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
