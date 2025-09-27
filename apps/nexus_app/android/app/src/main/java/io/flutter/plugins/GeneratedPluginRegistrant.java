@@ -41,11 +41,6 @@ public final class GeneratedPluginRegistrant {
       Log.e(TAG, "Error registering plugin google_mlkit_language_id, com.google_mlkit_language_id.GoogleMlKitLanguageIdPlugin", e);
     }
     try {
-      flutterEngine.getPlugins().add(new dev.flutter.plugins.integration_test.IntegrationTestPlugin());
-    } catch (Exception e) {
-      Log.e(TAG, "Error registering plugin integration_test, dev.flutter.plugins.integration_test.IntegrationTestPlugin", e);
-    }
-    try {
       flutterEngine.getPlugins().add(new com.ryanheise.just_audio.JustAudioPlugin());
     } catch (Exception e) {
       Log.e(TAG, "Error registering plugin just_audio, com.ryanheise.just_audio.JustAudioPlugin", e);
