@@ -28,7 +28,9 @@ class _MeetingsScreenState extends ConsumerState<MeetingsScreen> {
   @override
   void initState() {
     super.initState();
+    print('🎤 MeetingsScreen initializing...');
     _initializeData();
+    print('🎤 MeetingsScreen initialization complete');
   }
 
   Future<void> _initializeData() async {

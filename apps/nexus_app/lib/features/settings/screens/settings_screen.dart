@@ -14,7 +14,15 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
+  void initState() {
+    super.initState();
+    print('⚙️ SettingsScreen initializing...');
+    print('⚙️ SettingsScreen initialization complete');
+  }
+
+  @override
   Widget build(BuildContext context) {
+    print('⚙️ SettingsScreen building UI...');
     final theme = Theme.of(context);
     final themeMode = ref.watch(themeProvider);
     

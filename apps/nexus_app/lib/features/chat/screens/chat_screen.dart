@@ -18,7 +18,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    print('💬 ChatScreen initializing...');
     _loadWelcomeMessage();
+    print('💬 ChatScreen initialization complete');
   }
 
   @override

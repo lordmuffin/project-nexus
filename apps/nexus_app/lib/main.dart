@@ -9,7 +9,7 @@ import 'core/providers/database_provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  print('🚀 Starting Nexus App...');
+  print('🚀 Starting Nexus App - FIXED VERSION...');
   
   // Initialize SharedPreferences
   final sharedPreferences = await SharedPreferences.getInstance();
@@ -21,7 +21,7 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
   
-  print('📱 Running app...');
+  print('📱 Running app with proper screens...');
   runApp(
     ProviderScope(
       overrides: [

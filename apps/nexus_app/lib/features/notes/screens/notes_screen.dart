@@ -16,6 +16,12 @@ class NotesScreen extends ConsumerStatefulWidget {
 }
 
 class _NotesScreenState extends ConsumerState<NotesScreen> {
+  @override
+  void initState() {
+    super.initState();
+    print('📝 NotesScreen initializing...');
+    print('📝 NotesScreen initialization complete');
+  }
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
