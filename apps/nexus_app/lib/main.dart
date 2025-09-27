@@ -9,8 +9,11 @@ import 'core/providers/database_provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  print('🚀 Starting Nexus App...');
+  
   // Initialize SharedPreferences
   final sharedPreferences = await SharedPreferences.getInstance();
+  print('✅ SharedPreferences initialized');
   
   // Set preferred orientations
   await SystemChrome.setPreferredOrientations([
@@ -18,6 +21,7 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
   
+  print('📱 Running app...');
   runApp(
     ProviderScope(
       overrides: [
@@ -33,21 +37,21 @@ class NexusApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    debugPrint('🔥 NexusApp building...');
+    print('🔥 NexusApp building...');
     
     try {
       final router = ref.watch(routerProvider);
-      debugPrint('✅ Router obtained successfully');
+      print('✅ Router obtained successfully');
       
       return MaterialApp.router(
         title: 'Nexus',
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
+        theme: AppTheme.light(),
+        darkTheme: AppTheme.dark(),
         routerConfig: router,
       );
     } catch (e) {
-      debugPrint('❌ Error building NexusApp: $e');
+      print('❌ Error building NexusApp: $e');
       
       // Fallback to simple app
       return MaterialApp(
