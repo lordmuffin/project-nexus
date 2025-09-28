@@ -1,6 +1,10 @@
+import 'dart:async';
+import 'dart:io';
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:just_audio/just_audio.dart';
 import '../../features/chat/screens/chat_screen.dart';
 import '../../features/meetings/screens/meetings_screen.dart';
 import '../../features/meetings/screens/recording_screen.dart';
@@ -11,10 +15,11 @@ import '../../shared/widgets/app_shell.dart';
 import '../../shared/widgets/error_screen.dart';
 import '../providers/database_provider.dart';
 import '../database/database.dart';
-import '../repositories/meeting_repository.dart';
 import '../../features/meetings/widgets/tag_chip.dart';
 import '../../features/meetings/widgets/tag_selector.dart';
 import '../../features/meetings/services/meeting_export_service.dart';
+import '../../features/meetings/widgets/background_transcript_progress.dart';
+import '../../core/ml/audio_file_transcription_service.dart';
 import '../../shared/widgets/components.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -118,17 +123,97 @@ class _MeetingDetailScreenState extends ConsumerState<MeetingDetailScreen> {
   late TextEditingController _titleController;
   bool _isEditingTitle = false;
   bool _isLoading = false;
+  
+  // Transcript progress tracking
+  StreamSubscription<AudioFileTranscriptionResult>? _transcriptionSubscription;
+  AudioFileTranscriptionResult? _transcriptionResult;
 
   @override
   void initState() {
     super.initState();
     _titleController = TextEditingController();
+    _listenToTranscriptionProgress();
   }
 
   @override
   void dispose() {
     _titleController.dispose();
+    _transcriptionSubscription?.cancel();
     super.dispose();
+  }
+  
+  void _listenToTranscriptionProgress() {
+    final audioFileService = ref.read(audioFileTranscriptionServiceProvider);
+    
+    _transcriptionSubscription = audioFileService.resultStream.listen((result) {
+      if (mounted) {
+        setState(() {
+          _transcriptionResult = result;
+        });
+        
+        // Update meeting transcript when completed
+        if (result.state == PostRecordingState.completed) {
+          _updateMeetingTranscriptFromProgress();
+        }
+      }
+    });
+  }
+
+  /// Validate and auto-correct meeting duration if there's a mismatch with audio file
+  Future<void> _validateAndCorrectDuration(Meeting meeting) async {
+    // Skip if no audio file or duration already seems correct
+    if (meeting.audioPath == null || 
+        meeting.audioPath!.isEmpty ||
+        (meeting.duration != null && meeting.duration! > 0)) {
+      return;
+    }
+
+    try {
+      final audioFile = File(meeting.audioPath!);
+      if (!await audioFile.exists()) {
+        return; // Audio file doesn't exist, can't determine duration
+      }
+
+      // Use AudioPlayer to get actual duration
+      final player = AudioPlayer();
+      try {
+        await player.setAudioSource(AudioSource.file(meeting.audioPath!));
+        final actualDuration = player.duration;
+        
+        if (actualDuration != null && actualDuration.inSeconds > 0) {
+          final actualSeconds = actualDuration.inSeconds;
+          
+          // Update meeting duration in database
+          final db = ref.read(databaseProvider);
+          await db.updateMeeting(
+            meeting.toCompanion(true).copyWith(
+              duration: Value(actualSeconds),
+              updatedAt: Value(DateTime.now()),
+            ),
+          );
+          
+          debugPrint('🔧 Auto-corrected meeting ${meeting.id} duration: 0s → ${actualSeconds}s');
+        }
+      } finally {
+        await player.dispose();
+      }
+    } catch (e) {
+      debugPrint('❌ Failed to auto-correct duration for meeting ${meeting.id}: $e');
+    }
+  }
+  
+  Future<void> _updateMeetingTranscriptFromProgress() async {
+    final combinedTranscript = _transcriptionResult?.combinedTranscript ?? '';
+    if (combinedTranscript.isEmpty || !mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Transcript updated with background analysis'),
+        backgroundColor: Colors.green,
+      ),
+    );
   }
 
   Future<void> _updateMeetingTitle(Meeting meeting, String newTitle) async {
@@ -217,13 +302,76 @@ class _MeetingDetailScreenState extends ConsumerState<MeetingDetailScreen> {
       );
     }
   }
+  
+  Future<void> _retryTranscriptAnalysis(Meeting meeting) async {
+    // Check if meeting has an audio file path
+    if (meeting.audioPath == null || meeting.audioPath!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No audio file found for this meeting'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    try {
+      // Show loading indicator
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Starting background transcript analysis...'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.blue,
+        ),
+      );
+
+      // Get the audio file transcription service
+      final audioFileService = ref.read(audioFileTranscriptionServiceProvider);
+      
+      // Start the audio file scanning process
+      await audioFileService.scanAudioFile(
+        audioFilePath: meeting.audioPath!,
+        meetingId: meeting.id,
+        languageCode: 'en-US',
+      );
+      
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to start transcript analysis: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+  
+  Future<void> _cancelTranscriptAnalysis() async {
+    try {
+      final audioFileService = ref.read(audioFileTranscriptionServiceProvider);
+      await audioFileService.cancelScanning();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Transcript analysis cancelled'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to cancel analysis: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final meetingRepo = ref.watch(meetingRepositoryProvider);
     
-    return FutureBuilder(
-      future: meetingRepo.getMeetingById(int.parse(widget.meetingId)),
+    return StreamBuilder<Meeting?>(
+      stream: meetingRepo.watchMeetingById(int.parse(widget.meetingId)),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(
@@ -246,6 +394,11 @@ class _MeetingDetailScreenState extends ConsumerState<MeetingDetailScreen> {
             ),
           );
         }
+        
+        // Auto-correct duration if there's a mismatch with the audio file
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _validateAndCorrectDuration(meeting);
+        });
         
         // Set title controller if not editing
         if (!_isEditingTitle && _titleController.text != meeting.title) {
@@ -328,6 +481,9 @@ class _MeetingDetailScreenState extends ConsumerState<MeetingDetailScreen> {
                       case 'export':
                         _exportMeeting(meeting);
                         break;
+                      case 'retry_transcript':
+                        _retryTranscriptAnalysis(meeting);
+                        break;
                     }
                   },
                   itemBuilder: (context) => [
@@ -347,6 +503,15 @@ class _MeetingDetailScreenState extends ConsumerState<MeetingDetailScreen> {
                         contentPadding: EdgeInsets.zero,
                       ),
                     ),
+                    if (meeting.audioPath != null && meeting.audioPath!.isNotEmpty)
+                      const PopupMenuItem(
+                        value: 'retry_transcript',
+                        child: ListTile(
+                          leading: Icon(Icons.refresh, color: Colors.green),
+                          title: Text('Analyze Transcript'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
                   ],
                 ),
               ],
@@ -440,46 +605,107 @@ class _MeetingDetailScreenState extends ConsumerState<MeetingDetailScreen> {
                 
                 const SizedBox(height: 16),
                 
-                // Transcript
-                if (meeting.transcript != null && meeting.transcript!.isNotEmpty)
-                  NexusCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.transcribe,
-                              color: Theme.of(context).colorScheme.primary,
+                // Background transcript progress (show when active)
+                if (_transcriptionResult != null && 
+                    _transcriptionResult!.state != PostRecordingState.idle)
+                  BackgroundTranscriptProgress(
+                    transcriptionResult: _transcriptionResult!,
+                    onRetry: () => _retryTranscriptAnalysis(meeting),
+                    onCancel: _cancelTranscriptAnalysis,
+                  ),
+                
+                // Transcript section - always show, with helpful message when missing
+                NexusCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.transcribe,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Transcript',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Transcript',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
+                          ),
+                          const Spacer(),
+                          if (meeting.audioPath != null && 
+                              meeting.audioPath!.isNotEmpty &&
+                              (meeting.transcript == null || meeting.transcript!.isEmpty))
+                            TextButton.icon(
+                              onPressed: () => _retryTranscriptAnalysis(meeting),
+                              icon: const Icon(Icons.refresh, size: 16),
+                              label: const Text('Generate'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Theme.of(context).colorScheme.primary,
+                                textStyle: const TextStyle(fontSize: 12),
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surface,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
-                            ),
-                          ),
-                          child: Text(
-                            meeting.transcript!,
-                            style: Theme.of(context).textTheme.bodyMedium,
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
                           ),
                         ),
-                      ],
-                    ),
+                        child: meeting.transcript != null && meeting.transcript!.isNotEmpty
+                            ? Text(
+                                meeting.transcript!,
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.info_outline,
+                                        size: 16,
+                                        color: Colors.orange[700],
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'No transcript available',
+                                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                          color: Colors.orange[700],
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    _getTranscriptMissingReason(meeting),
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  if (meeting.audioPath != null && meeting.audioPath!.isNotEmpty) ...[
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      'You can try generating a transcript from the audio recording using the "Generate" button above.',
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: Colors.blue[600],
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                      ),
+                    ],
                   ),
+                ),
                 
                 const SizedBox(height: 16),
                 
@@ -588,6 +814,22 @@ class _MeetingDetailScreenState extends ConsumerState<MeetingDetailScreen> {
     );
   }
   
+  String _getTranscriptMissingReason(Meeting meeting) {
+    if (meeting.audioPath == null || meeting.audioPath!.isEmpty) {
+      return 'No audio recording was found for this meeting.';
+    }
+    
+    if (meeting.duration != null && meeting.duration! == 0) {
+      return 'Recording was too short (0 seconds). This may indicate:\n• Recording failed to start properly\n• No speech was detected\n• Recording was stopped immediately';
+    }
+    
+    if (meeting.duration != null && meeting.duration! < 3) {
+      return 'Recording was very short (${meeting.duration}s). Speech recognition may not work well with recordings under 3 seconds.';
+    }
+    
+    return 'Transcription was not generated during recording. This could be due to:\n• Microphone permissions denied\n• No speech detected\n• Speech recognition service error\n• Very quiet audio levels';
+  }
+
   String _formatDuration(int? durationSeconds) {
     if (durationSeconds == null) return 'Unknown';
     

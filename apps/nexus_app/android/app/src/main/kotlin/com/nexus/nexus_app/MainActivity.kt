@@ -37,6 +37,21 @@ class MainActivity: FlutterActivity() {
                         speechHandler?.cancelListening()
                         result.success(null)
                     }
+                    "testLocaleMatching" -> {
+                        // Test method to verify the locale matching fix
+                        val testResults = LocaleMatchingTest.runLocaleMatchingTests()
+                        result.success(testResults)
+                    }
+                    "verifyBugFix" -> {
+                        // Quick verification that the en-US bug is fixed
+                        val isFixed = LocaleMatchingTest.verifyBugFix()
+                        result.success(isFixed)
+                    }
+                    "resetErrorCount" -> {
+                        // Reset speech recognition error count
+                        speechHandler?.resetErrorCount()
+                        result.success(null)
+                    }
                     else -> {
                         result.notImplemented()
                     }

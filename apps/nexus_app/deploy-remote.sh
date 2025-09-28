@@ -138,7 +138,7 @@ else
 fi
 
 # Check MainActivity
-if grep -q "FlutterActivity" android/app/src/main/kotlin/*/*/*.kt; then
+if find android/app/src/main/kotlin -name "*.kt" -exec grep -l "FlutterActivity" {} \; | head -1 > /dev/null; then
     print_success "✅ MainActivity extends FlutterActivity"
 else
     print_error "MainActivity configuration issue"

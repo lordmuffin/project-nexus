@@ -39,6 +39,10 @@ class MeetingRepository {
     }
   }
   
+  Stream<Meeting?> watchMeetingById(int id) {
+    return _db.watchMeeting(id);
+  }
+  
   // Update
   Future<bool> updateMeeting(Meeting meeting) async {
     return await _db.updateMeeting(
@@ -90,6 +94,19 @@ class MeetingRepository {
       await _db.updateMeeting(
         meeting.toCompanion(true).copyWith(
           audioPath: Value(audioPath),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+    }
+  }
+  
+  Future<void> updateAudioPathAndDuration(int meetingId, String audioPath, int durationSeconds) async {
+    final meeting = await getMeetingById(meetingId);
+    if (meeting != null) {
+      await _db.updateMeeting(
+        meeting.toCompanion(true).copyWith(
+          audioPath: Value(audioPath),
+          duration: Value(durationSeconds),
           updatedAt: Value(DateTime.now()),
         ),
       );

@@ -87,6 +87,10 @@ class AppDatabase extends _$AppDatabase {
     return (select(meetings)..where((t) => t.id.equals(id))).getSingle();
   }
   
+  Stream<Meeting?> watchMeeting(int id) {
+    return (select(meetings)..where((t) => t.id.equals(id))).watchSingleOrNull();
+  }
+  
   Future<int> insertMeeting(MeetingsCompanion meeting) {
     return into(meetings).insert(meeting);
   }

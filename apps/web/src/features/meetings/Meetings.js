@@ -27,6 +27,8 @@ function Meetings() {
   const [isRecording, setIsRecording] = useState(false);
   const [showPlayback, setShowPlayback] = useState(false);
   const [socket, setSocket] = useState(null);
+  const [activeMeetingId, setActiveMeetingId] = useState(null);
+  const [transcriptionProgress, setTranscriptionProgress] = useState({});
 
   useEffect(() => {
     fetchMeetings();
@@ -81,31 +83,81 @@ function Meetings() {
     // Meeting/transcription events
     socketInstance.on('transcription_started', (message) => {
       console.log('Transcription started:', message);
+      const meetingId = message.meetingId || `temp-${Date.now()}`;
       setIsRecording(true);
-      setLiveTranscription('Starting transcription...');
+      setActiveMeetingId(meetingId);
+      setTranscriptionProgress(prev => ({
+        ...prev,
+        [meetingId]: {
+          status: 'transcribing',
+          text: 'Starting transcription...',
+          progress: 0
+        }
+      }));
     });
 
     socketInstance.on('transcription_progress', (message) => {
       console.log('Transcription progress:', message);
+      const meetingId = activeMeetingId || `temp-${Date.now()}`;
+      setTranscriptionProgress(prev => ({
+        ...prev,
+        [meetingId]: {
+          ...prev[meetingId],
+          text: (prev[meetingId]?.text || '') + ' ' + (message.text || ''),
+          progress: message.progress || (prev[meetingId]?.progress || 0) + 10
+        }
+      }));
       setLiveTranscription(prev => prev + ' ' + (message.text || ''));
     });
 
     socketInstance.on('transcription_completed', (message) => {
       console.log('Transcription completed:', message);
       setIsRecording(false);
-      if (message.transcriptionId) {
-        fetchTranscriptionResult(message.transcriptionId);
+      const meetingId = message.transcriptionId || activeMeetingId;
+      if (meetingId) {
+        setTranscriptionProgress(prev => ({
+          ...prev,
+          [meetingId]: {
+            ...prev[meetingId],
+            status: 'completed',
+            progress: 100
+          }
+        }));
+        if (message.transcriptionId) {
+          fetchTranscriptionResult(message.transcriptionId);
+        }
       }
+      setActiveMeetingId(null);
     });
 
     socketInstance.on('recording_started', (message) => {
       console.log('Recording started:', message);
+      const meetingId = message.meetingId || `temp-${Date.now()}`;
       setIsRecording(true);
-      setLiveTranscription('Recording started...');
+      setActiveMeetingId(meetingId);
+      setTranscriptionProgress(prev => ({
+        ...prev,
+        [meetingId]: {
+          status: 'recording',
+          text: 'Recording started...',
+          progress: 0
+        }
+      }));
     });
 
     socketInstance.on('recording_stopped', (message) => {
       console.log('Recording stopped:', message);
+      const meetingId = activeMeetingId || message.meetingId;
+      if (meetingId) {
+        setTranscriptionProgress(prev => ({
+          ...prev,
+          [meetingId]: {
+            ...prev[meetingId],
+            status: 'processing',
+            text: 'Processing recording...'
+          }
+        }));
+      }
       setIsRecording(false);
     });
 
@@ -210,6 +262,13 @@ function Meetings() {
         
         setMeetings(prev => [newMeeting, ...prev]);
         setSelectedMeeting(newMeeting);
+        
+        // Clean up transcription progress for this meeting
+        setTranscriptionProgress(prev => {
+          const updated = { ...prev };
+          delete updated[transcriptionId];
+          return updated;
+        });
         
         // Auto-generate AI summary for longer transcripts
         if (data.data.text && data.data.text.length > 100) {
@@ -563,13 +622,6 @@ function Meetings() {
         )}
       </div>
       
-      {liveTranscription && isRecording && (
-        <div className="live-transcription">
-          <h4>Live Transcription</h4>
-          <div className="live-text">{liveTranscription}</div>
-        </div>
-      )}
-      
       {meetings.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">🎙️</div>
@@ -578,28 +630,60 @@ function Meetings() {
         </div>
       ) : (
         <div className="meetings-items">
-          {meetings.map(meeting => (
-            <div 
-              key={meeting.id}
-              className={`meeting-item ${selectedMeeting?.id === meeting.id ? 'selected' : ''}`}
-              onClick={() => setSelectedMeeting(meeting)}
-            >
-              <div className="meeting-title">{meeting.title}</div>
-              <div className="meeting-meta">
-                <span className="meeting-date">
-                  {new Date(meeting.createdAt).toLocaleDateString()}
-                </span>
-                {meeting.duration > 0 && (
-                  <span className="meeting-duration">
-                    {formatTime(meeting.duration)}
+          {meetings.map(meeting => {
+            const progress = transcriptionProgress[meeting.id];
+            return (
+              <div 
+                key={meeting.id}
+                className={`meeting-item ${selectedMeeting?.id === meeting.id ? 'selected' : ''} ${progress ? 'with-progress' : ''}`}
+                onClick={() => setSelectedMeeting(meeting)}
+              >
+                <div className="meeting-title">{meeting.title}</div>
+                <div className="meeting-meta">
+                  <span className="meeting-date">
+                    {new Date(meeting.createdAt).toLocaleDateString()}
                   </span>
+                  {meeting.duration > 0 && (
+                    <span className="meeting-duration">
+                      {formatTime(meeting.duration)}
+                    </span>
+                  )}
+                  {progress && (
+                    <span className={`transcription-status status-${progress.status}`}>
+                      {progress.status === 'recording' && '🔴 Recording'}
+                      {progress.status === 'transcribing' && '📝 Transcribing'}
+                      {progress.status === 'processing' && '⚙️ Processing'}
+                      {progress.status === 'completed' && '✅ Completed'}
+                    </span>
+                  )}
+                </div>
+                
+                {progress && (
+                  <div className="transcription-progress">
+                    <div className="progress-bar">
+                      <div 
+                        className="progress-fill" 
+                        style={{ width: `${Math.min(progress.progress || 0, 100)}%` }}
+                      ></div>
+                    </div>
+                    <div className="progress-text">
+                      {progress.text && progress.text.length > 80 
+                        ? progress.text.substring(0, 80) + '...'
+                        : progress.text}
+                    </div>
+                  </div>
                 )}
+                
+                <div className="meeting-preview">
+                  {progress && progress.text 
+                    ? (progress.text.length > 100 ? progress.text.substring(0, 100) + '...' : progress.text)
+                    : meeting.transcript 
+                    ? meeting.transcript.substring(0, 100) + '...'
+                    : 'No transcript available yet...'}
+                </div>
               </div>
-              <div className="meeting-preview">
-                {meeting.transcript?.substring(0, 100)}...
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
